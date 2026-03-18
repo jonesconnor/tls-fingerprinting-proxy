@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ article.title }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f11;
+      --surface: #1a1a1f;
+      --border: #2a2a35;
+      --text: #e8e8f0;
+      --muted: #888899;
+      --accent: #7c6ef0;
+      --accent-dim: #3d3570;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --code-bg: #13131a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(15, 15, 17, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── Classification banner ─────────────────────────────────────── */
+    .classification-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-browser  { background: rgba(74, 222, 128, 0.15); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.3); }
+    .badge-agent    { background: rgba(251, 191, 36, 0.15); color: var(--yellow); border: 1px solid rgba(251, 191, 36, 0.3); }
+    .badge-tool     { background: rgba(124, 110, 240, 0.15); color: var(--accent); border: 1px solid rgba(124, 110, 240, 0.3); }
+    .badge-headless { background: rgba(248, 113, 113, 0.15); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.3); }
+    .badge-unknown  { background: rgba(136, 136, 153, 0.15); color: var(--muted); border: 1px solid rgba(136, 136, 153, 0.3); }
+
+    .ja4-pill {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .ja4-hash {
+      color: var(--accent);
+    }
+
+    .signal-chips {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      padding: 0.15rem 0.45rem;
+      border-radius: 3px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────── */
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    header.article-header {
+      padding: 4rem 0 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+
+    .topic-list {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+
+    .topic-tag {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 3px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    h1.article-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .article-subtitle {
+      font-size: 1.1rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .article-meta {
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    /* ── Article body ──────────────────────────────────────────────── */
+    .article-body {
+      margin-bottom: 4rem;
+    }
+
+    .section {
+      margin-bottom: 2.5rem;
+    }
+
+    h2.section-heading {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    p {
+      color: #c8c8d8;
+      line-height: 1.75;
+    }
+
+    /* ── Debug accordion ───────────────────────────────────────────── */
+    .debug-section {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 3rem;
+      overflow: hidden;
+    }
+
+    .debug-toggle {
+      width: 100%;
+      text-align: left;
+      padding: 0.85rem 1.25rem;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .debug-toggle:hover { color: var(--text); }
+
+    .debug-content {
+      padding: 0 1.25rem 1.25rem;
+      display: none;
+    }
+
+    .debug-content.open { display: block; }
+
+    .debug-grid {
+      display: grid;
+      gap: 0.5rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.75rem;
+    }
+
+    .debug-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 1rem;
+    }
+
+    .debug-key { color: var(--muted); }
+    .debug-val { color: var(--text); word-break: break-all; }
+
+    /* ── Related ───────────────────────────────────────────────────── */
+    .related-section {
+      margin-bottom: 4rem;
+    }
+
+    .related-section h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .related-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      list-style: none;
+    }
+
+    .related-item {
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      transition: border-color 0.15s;
+    }
+
+    .related-item:hover { border-color: var(--accent-dim); }
+
+    .related-item a {
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .related-item p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    /* ── Footer ────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <span class="nav-brand">TLS Fingerprint Proxy</span>
+    <ul class="nav-links">
+      <li><a href="/">Article</a></li>
+      <li><a href="/debug">Debug headers</a></li>
+      <li><a href="https://github.com/FoxIO-LLC/ja4" target="_blank">JA4 spec</a></li>
+    </ul>
+  </nav>
+
+  <!-- Classification banner — the first thing the user sees is what the proxy detected -->
+  <div class="classification-bar">
+    <span>
+      Detected as:&nbsp;
+      <span class="badge badge-{{ classification.client_type }}">
+        {{ classification.client_type }}
+      </span>
+    </span>
+    <span class="ja4-pill">
+      JA4:&nbsp;<span class="ja4-hash">{{ classification.ja4 or '—' }}</span>
+    </span>
+    <span style="color: var(--muted);">{{ classification.detail or '' }}</span>
+    {% if classification.signals %}
+    <div class="signal-chips">
+      {% for sig in classification.signals %}
+      <span class="chip">{{ sig }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="container">
+
+    <header class="article-header">
+      <div class="topic-list">
+        {% for topic in article.topics %}
+        <span class="topic-tag">{{ topic }}</span>
+        {% endfor %}
+      </div>
+      <h1 class="article-title">{{ article.title }}</h1>
+      <p class="article-subtitle">{{ article.subtitle }}</p>
+      <div class="article-meta">
+        <span>{{ article.author }}</span>
+        <span>{{ article.reading_time_minutes }} min read</span>
+        <span>{{ article.published_at[:10] }}</span>
+      </div>
+    </header>
+
+    <main>
+      <article class="article-body">
+        {% for section in article.sections %}
+        <div class="section">
+          <h2 class="section-heading">{{ section.heading }}</h2>
+          <p>{{ section.body }}</p>
+        </div>
+        {% endfor %}
+      </article>
+
+      <!-- Debug panel: show what the proxy detected about this request -->
+      <div class="debug-section">
+        <button class="debug-toggle" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span>Request classification details</span>
+          <span>▾</span>
+        </button>
+        <div class="debug-content">
+          <div class="debug-grid">
+            <div class="debug-row">
+              <span class="debug-key">client_type</span>
+              <span class="debug-val">{{ classification.client_type }}</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-key">confidence</span>
+              <span class="debug-val">{{ classification.confidence }}</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-key">ja4_fingerprint</span>
+              <span class="debug-val">{{ classification.ja4 or '—' }}</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-key">detail</span>
+              <span class="debug-val">{{ classification.detail or '—' }}</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-key">signals</span>
+              <span class="debug-val">{{ classification.signals | join(', ') or '—' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="related-section">
+        <h3>Further reading</h3>
+        <ul class="related-list">
+          {% for item in related %}
+          <li class="related-item">
+            <a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+            <p>{{ item.description }}</p>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        This page was served by a TLS fingerprinting proxy.
+        Agents that hit this endpoint receive <a href="/debug">structured JSON</a> instead.
+        Built with
+        <a href="https://github.com/FoxIO-LLC/ja4">JA4</a>.
+      </p>
+    </footer>
+
+  </div>
+
+</body>
+</html>
