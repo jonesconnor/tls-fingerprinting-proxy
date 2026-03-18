@@ -1,4 +1,5 @@
-.PHONY: certs build up down logs test-curl test-python test-node dump-logs query-logs clean
+.PHONY: certs build up down logs test-curl test-python test-node dump-logs query-logs \
+        provision-certs up-prod down-prod logs-prod renew-certs clean
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,49 @@ for line in sys.stdin:
     except json.JSONDecodeError:
         pass
 "
+
+# ── Production ─────────────────────────────────────────────────────────────
+#
+# Workflow:
+#   1. Buy a domain. Point an A record at your Hetzner server IP.
+#   2. make provision-certs DOMAIN=yourhost.com EMAIL=you@example.com
+#   3. make up-prod DOMAIN=yourhost.com
+#   4. make renew-certs DOMAIN=yourhost.com   (run every ~60 days; LE certs expire at 90)
+
+# Obtain a Let's Encrypt certificate via certbot standalone.
+# Port 80 must be reachable from the internet during this step.
+provision-certs:
+	@test -n "$(DOMAIN)" || (echo "Usage: make provision-certs DOMAIN=yourhost.com EMAIL=you@example.com" && exit 1)
+	@test -n "$(EMAIL)"  || (echo "EMAIL is required. Usage: make provision-certs DOMAIN=... EMAIL=..." && exit 1)
+	@bash certs/provision.sh $(DOMAIN) $(EMAIL)
+
+# Start the production stack (port 443, Let's Encrypt cert).
+# Run provision-certs first if you haven't already.
+up-prod:
+	@test -n "$(DOMAIN)" || (echo "Usage: make up-prod DOMAIN=yourhost.com" && exit 1)
+	@test -f certs/letsencrypt/live/$(DOMAIN)/fullchain.pem || \
+	  (echo "No cert found for $(DOMAIN). Run: make provision-certs DOMAIN=$(DOMAIN) EMAIL=you@example.com" && exit 1)
+	DOMAIN=$(DOMAIN) docker compose -f docker-compose.prod.yml up -d --build
+	@echo ""
+	@echo "  Proxy:   https://$(DOMAIN)/"
+	@echo "  Logs:    make logs-prod"
+	@echo "  Test:    curl https://$(DOMAIN)/debug"
+
+down-prod:
+	docker compose -f docker-compose.prod.yml down
+
+logs-prod:
+	docker compose -f docker-compose.prod.yml logs -f
+
+# Renew the Let's Encrypt certificate and restart the proxy to pick it up.
+# Port 80 must be reachable during renewal (same as provisioning).
+renew-certs:
+	@test -n "$(DOMAIN)" || (echo "Usage: make renew-certs DOMAIN=yourhost.com" && exit 1)
+	docker run --rm \
+	  -p 80:80 \
+	  -v "$(CURDIR)/certs/letsencrypt:/etc/letsencrypt" \
+	  certbot/certbot renew --standalone
+	docker compose -f docker-compose.prod.yml restart proxy
 
 # ── Utilities ──────────────────────────────────────────────────────────────
 
