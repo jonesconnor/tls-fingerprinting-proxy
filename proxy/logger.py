@@ -84,9 +84,10 @@ class FingerprintLogger:
             handler.setFormatter(logging.Formatter("%(message)s"))
             self._log.addHandler(handler)
 
-        self._log.info  # touch to confirm handler attached
         operational = logging.getLogger("proxy")
-        operational.info(f"Fingerprint log: {log_dir / _LOG_FILE} (rotate daily, keep {LOG_RETENTION_DAYS}d)")
+        operational.info(
+            f"Fingerprint log: {log_dir / _LOG_FILE} (rotate daily, keep {LOG_RETENTION_DAYS}d)"
+        )
 
     def record(
         self,

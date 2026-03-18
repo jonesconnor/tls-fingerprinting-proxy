@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Lint proxy
+        run: uvx ruff check proxy/
+
+      - name: Lint backend
+        run: uvx ruff check backend/
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install proxy dependencies
+        working-directory: proxy
+        run: uv sync --group dev
+
+      - name: Run tests
+        working-directory: proxy
+        run: uv run pytest tests/ -v

@@ -15,7 +15,8 @@ Routes
 import json
 import os
 from datetime import datetime, timezone
-from flask import Flask, render_template, request, jsonify
+
+from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
