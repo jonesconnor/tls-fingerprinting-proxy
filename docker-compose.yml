@@ -6,6 +6,7 @@ services:
       - "8443:8443"
     volumes:
       - ./certs:/certs:ro
+      - fingerprint-logs:/data/fingerprints
     environment:
       LISTEN_HOST: "0.0.0.0"
       PROXY_PORT: "8443"
@@ -13,6 +14,8 @@ services:
       BACKEND_PORT: "8080"
       CERT_FILE: "/certs/proxy.crt"
       KEY_FILE: "/certs/proxy.key"
+      LOG_DIR: "/data/fingerprints"
+      LOG_RETENTION_DAYS: "30"
     depends_on:
       backend:
         condition: service_started
@@ -33,3 +36,6 @@ services:
 networks:
   internal:
     driver: bridge
+
+volumes:
+  fingerprint-logs:

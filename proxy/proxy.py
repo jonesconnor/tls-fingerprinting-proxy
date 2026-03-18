@@ -27,10 +27,10 @@ import logging
 import os
 import socket
 import ssl
-from datetime import datetime, timezone
 
 from classifier import classify
 from ja4 import compute_ja4, compute_ja4_raw
+from logger import FingerprintLogger
 from lookup import Ja4Database
 from tls_parser import parse_client_hello  # scapy-backed
 
@@ -194,6 +194,7 @@ async def handle_connection(
     ssl_ctx: ssl.SSLContext,
     loop: asyncio.AbstractEventLoop,
     db: Ja4Database,
+    fp_log: FingerprintLogger,
 ) -> None:
     client_ip = addr[0]
 
@@ -227,6 +228,15 @@ async def handle_connection(
         log.info(
             f"{client_ip:>15} | {ja4} | {clf.client_type:8} ({clf.confidence}) | {clf.detail}"
         )
+
+        if not ch.parse_error:
+            fp_log.record(
+                client_ip=client_ip,
+                ja4=ja4,
+                ja4_raw=raw,
+                clf=clf,
+                ch=ch,
+            )
 
         # ── 3. TLS termination ──────────────────────────────────────────────
         #
@@ -276,6 +286,8 @@ async def main() -> None:
     db = Ja4Database()
     await db.load()
 
+    fp_log = FingerprintLogger()
+
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((LISTEN_HOST, LISTEN_PORT))
@@ -288,7 +300,7 @@ async def main() -> None:
 
     while True:
         client_sock, addr = await loop.sock_accept(server_sock)
-        asyncio.create_task(handle_connection(client_sock, addr, ssl_ctx, loop, db))
+        asyncio.create_task(handle_connection(client_sock, addr, ssl_ctx, loop, db, fp_log))
 
 
 if __name__ == "__main__":

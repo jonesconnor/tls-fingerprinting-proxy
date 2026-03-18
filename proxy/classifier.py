@@ -17,7 +17,8 @@ Client types:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from tls_parser import ClientHelloInfo, GREASE_VALUES
+
+from tls_parser import GREASE_VALUES, ClientHelloInfo
 
 
 @dataclass
@@ -197,6 +198,8 @@ def classify(ja4: str, ch: ClientHelloInfo) -> Classification:
     return Classification(
         client_type="unknown",
         confidence="low",
-        detail=f"Unclassified ({num_ciphers} ciphers, {num_extensions} extensions, grease={ch.has_grease})",
+        detail=(
+            f"Unclassified ({num_ciphers} ciphers, {num_extensions} ext, grease={ch.has_grease})"
+        ),
         signals=signals,
     )

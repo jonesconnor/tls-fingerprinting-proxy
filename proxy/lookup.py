@@ -19,7 +19,9 @@ Response is a JSON array of records:
 """
 
 import logging
+
 import httpx
+
 from classifier import Classification
 
 log = logging.getLogger("proxy.lookup")

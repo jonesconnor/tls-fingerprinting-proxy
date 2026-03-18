@@ -25,7 +25,8 @@ Example output: t13d1516h2_8daaf6152771_b0da82dd1658
 """
 
 import hashlib
-from tls_parser import ClientHelloInfo, GREASE_VALUES
+
+from tls_parser import GREASE_VALUES, ClientHelloInfo
 
 # Extensions excluded from the hash in part C (their values are captured
 # separately in the 'a' component or in the sig_alg portion)
