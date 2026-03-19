@@ -1,0 +1,55 @@
+# docker-compose.prod.yml — Production stack configuration.
+#
+# Differences from docker-compose.yml (dev):
+#   - Proxy binds port 443 instead of 8443
+#   - Cert/key paths point to Let's Encrypt certs in certs/letsencrypt/
+#   - DOMAIN must be set in the environment or passed via make up-prod
+#
+# Usage:
+#   make provision-certs DOMAIN=yourhost.com EMAIL=you@example.com
+#   make up-prod DOMAIN=yourhost.com
+#
+# Do not use this file directly with docker compose up — use the Makefile
+# targets, which pass DOMAIN through correctly.
+
+services:
+
+  proxy:
+    build: ./proxy
+    ports:
+      - "443:443"
+    volumes:
+      - ./certs/letsencrypt:/etc/letsencrypt:ro
+      - fingerprint-logs:/data/fingerprints
+    environment:
+      LISTEN_HOST: "0.0.0.0"
+      PROXY_PORT: "443"
+      BACKEND_HOST: "backend"
+      BACKEND_PORT: "8080"
+      CERT_FILE: "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+      KEY_FILE: "/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
+      LOG_DIR: "/data/fingerprints"
+      LOG_RETENTION_DAYS: "30"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - internal
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    expose:
+      - "8080"
+    environment:
+      BACKEND_PORT: "8080"
+    networks:
+      - internal
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  fingerprint-logs:
