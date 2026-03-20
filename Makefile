@@ -70,19 +70,7 @@ dump-logs:
 query-logs:
 	@docker compose exec proxy sh -c \
 	  'cat /data/fingerprints/fingerprints.ndjson 2>/dev/null || echo "No log file yet."' \
-	  | python3 -c "
-import sys, json
-t = '$(TYPE)'
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    try:
-        r = json.loads(line)
-        if not t or r.get('client_type') == t:
-            print(json.dumps(r, indent=2))
-    except json.JSONDecodeError:
-        pass
-"
+	  | python3 -c "import sys,json; t='$(TYPE)'; [print(json.dumps(r,indent=2)) for l in sys.stdin if l.strip() for r in [json.loads(l)] if not t or r.get('client_type')==t]"
 
 # ── Production ─────────────────────────────────────────────────────────────
 #
