@@ -9,6 +9,6 @@ COPY pyproject.toml .
 # --no-install-project: we're a script, not a package — just install the deps.
 RUN uv sync --no-install-project
 
-COPY tls_parser.py ja4.py classifier.py lookup.py proxy.py ./
+COPY tls_parser.py ja4.py classifier.py lookup.py logger.py proxy.py ./
 
 CMD ["uv", "run", "python", "-u", "proxy.py"]
