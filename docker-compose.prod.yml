@@ -29,7 +29,7 @@ services:
       CERT_FILE: "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
       KEY_FILE: "/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
       LOG_DIR: "/data/fingerprints"
-      LOG_RETENTION_DAYS: "30"
+      LOG_RETENTION_DAYS: "7"
     depends_on:
       backend:
         condition: service_started
