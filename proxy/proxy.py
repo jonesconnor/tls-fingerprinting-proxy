@@ -249,7 +249,10 @@ async def handle_connection(
                 None, lambda: ssl_ctx.wrap_socket(client_sock, server_side=True)
             )
         except ssl.SSLError as exc:
-            log.warning(f"{client_ip}: TLS handshake failed: {exc}")
+            # UNEXPECTED_EOF_WHILE_READING is almost always a scanner/prober that
+            # sends a ClientHello and immediately closes the connection — not worth logging.
+            if "UNEXPECTED_EOF_WHILE_READING" not in str(exc):
+                log.warning(f"{client_ip}: TLS handshake failed: {exc}")
             return
 
         # ── 4. Read decrypted HTTP request ──────────────────────────────────
