@@ -294,6 +294,7 @@ class TestKnownHash:
         """A hash in the local catalogue should return agent/high via Ja4Database.lookup()."""
         import json
         from unittest.mock import patch
+
         from lookup import Ja4Database
 
         test_hash = "t00d0000h2_000000000000_000000000000"

@@ -3,13 +3,11 @@ Tests for lookup.py — Ja4Database local catalogue loading and adapter.
 """
 
 import json
-import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from lookup import Ja4Database, _from_catalogue_entry, CATALOGUE_PATH
-
+from lookup import Ja4Database, _from_catalogue_entry
 
 # ---------------------------------------------------------------------------
 # Helpers
