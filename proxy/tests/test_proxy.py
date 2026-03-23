@@ -8,8 +8,6 @@ or open sockets.
 
 from unittest.mock import patch
 
-import pytest
-
 from classifier import Classification
 from proxy import (
     AGENT_BACKEND_HOST,
@@ -18,7 +16,6 @@ from proxy import (
     HUMAN_BACKEND_PORT,
     _select_backend,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
