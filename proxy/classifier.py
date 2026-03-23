@@ -2,8 +2,9 @@
 classifier.py - Heuristic client classification from JA4 + ClientHello signals.
 
 Classification is intentionally multi-signal and defensive: a single signal is
-never sufficient. The heuristics here are starting points - Phase 4 research
-will refine them with a real fingerprint catalogue built from observed traffic.
+never sufficient. The heuristics here are starting points — real fingerprint
+catalogue lookups are handled by lookup.py (Ja4Database), which takes precedence
+over these heuristics.
 
 Client types:
   browser   - A human-driven browser (Chrome, Firefox, Safari, Edge)
@@ -36,17 +37,6 @@ class Classification:
             "signals": self.signals,
         }
 
-
-# ---------------------------------------------------------------------------
-# Known JA4 hashes - seed list, extend from live ja4db.com lookups.
-# Maps ja4_hash → (client_type, detail)
-# ---------------------------------------------------------------------------
-_KNOWN_HASHES: dict[str, tuple[str, str]] = {
-    # Populate from ja4db.com as you observe real traffic.
-    # Example entries (these may drift with browser updates):
-    # "t13d1516h2_8daaf6152771_b0da82dd1658": ("browser", "Chrome 120 / macOS"),
-    # "t13d0900h2_f0d33fd0b27a_3e97a7bab428": ("agent",   "Python httpx 0.27 / OpenSSL"),
-}
 
 
 def classify(ja4: str, ch: ClientHelloInfo) -> Classification:
@@ -86,16 +76,6 @@ def classify(ja4: str, ch: ClientHelloInfo) -> Classification:
         signals.append("minimal_extensions")  # Go, old curl
     elif num_extensions >= 14:
         signals.append("rich_extensions")     # Browser
-
-    # Known hash - highest confidence
-    if ja4 in _KNOWN_HASHES:
-        client_type, detail = _KNOWN_HASHES[ja4]
-        return Classification(
-            client_type=client_type,
-            confidence="high",
-            detail=f"{detail} (known hash)",
-            signals=signals,
-        )
 
     # ── Heuristic rules (ordered most-specific → least-specific) ──────────
 

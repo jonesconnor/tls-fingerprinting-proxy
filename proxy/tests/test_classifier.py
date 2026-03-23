@@ -286,22 +286,31 @@ class TestUnknown:
 
 
 # ---------------------------------------------------------------------------
-# Known hash — highest-confidence fast path
+# Catalogue lookup — highest-confidence fast path (via Ja4Database)
 # ---------------------------------------------------------------------------
 
 class TestKnownHash:
-    def test_known_hash_overrides_heuristics(self, make_ch):
-        from classifier import _KNOWN_HASHES
+    def test_catalogue_hash_returns_agent_high(self, tmp_path):
+        """A hash in the local catalogue should return agent/high via Ja4Database.lookup()."""
+        import json
+        from unittest.mock import patch
+        from lookup import Ja4Database
 
-        # Temporarily register a test hash
         test_hash = "t00d0000h2_000000000000_000000000000"
-        _KNOWN_HASHES[test_hash] = ("browser", "Test Browser 1.0")
+        entry = {
+            "sdk": "openai-python",
+            "sdk_version": "1.0.0",
+            "ja4": test_hash,
+        }
+        catalogue = tmp_path / "fingerprints.json"
+        catalogue.write_text(json.dumps([entry]))
 
-        try:
-            ch = make_ch(has_grease=False)  # would normally be unknown
-            clf = classify(test_hash, ch)
-            assert clf.client_type == "browser"
-            assert clf.confidence == "high"
-            assert "known hash" in clf.detail
-        finally:
-            del _KNOWN_HASHES[test_hash]
+        db = Ja4Database()
+        with patch("lookup.CATALOGUE_PATH", str(catalogue)):
+            db._load_local_catalogue()
+
+        clf = db.lookup(test_hash)
+        assert clf is not None
+        assert clf.client_type == "agent"
+        assert clf.confidence == "high"
+        assert "catalogue_match" in clf.signals
