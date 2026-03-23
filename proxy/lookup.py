@@ -18,7 +18,9 @@ Response is a JSON array of records:
     }
 """
 
+import json
 import logging
+import os
 
 import httpx
 
@@ -27,6 +29,9 @@ from classifier import Classification
 log = logging.getLogger("proxy.lookup")
 
 JA4DB_URL = "https://ja4db.com/api/read/"
+CATALOGUE_PATH = os.environ.get(
+    "CATALOGUE_PATH", "/data/catalogue/ai-sdk-fingerprints.json"
+)
 
 # Keywords in `application`, `library`, or `user_agent_string` that map to our client types.
 # Checked in order — first match wins.
@@ -66,6 +71,19 @@ def _infer_type(record: dict) -> str:
     return "unknown"
 
 
+def _from_catalogue_entry(entry: dict) -> Classification:
+    """Convert a local catalogue entry to a Classification."""
+    sdk = entry.get("sdk", "unknown SDK")
+    version = entry.get("sdk_version", "")
+    detail = f"{sdk} {version}".strip() if version else sdk
+    return Classification(
+        client_type="agent",
+        confidence="high",
+        detail=f"{detail} (catalogue)",
+        signals=["catalogue_match"],
+    )
+
+
 def _make_detail(record: dict) -> str:
     parts = [
         record.get("application") or "",
@@ -78,6 +96,24 @@ def _make_detail(record: dict) -> str:
 class Ja4Database:
     def __init__(self) -> None:
         self._db: dict[str, dict] = {}
+
+    def _load_local_catalogue(self) -> None:
+        """Load local AI SDK fingerprint catalogue and merge into _db. Silent on missing file."""
+        if not os.path.exists(CATALOGUE_PATH):
+            return
+        try:
+            with open(CATALOGUE_PATH) as f:
+                entries: list[dict] = json.loads(f.read())
+        except Exception as exc:
+            log.warning(f"catalogue load failed ({exc}) - skipping")
+            return
+        loaded = 0
+        for entry in entries:
+            if not entry.get("ja4"):
+                continue
+            self._db[entry["ja4"]] = entry
+            loaded += 1
+        log.info(f"local catalogue loaded: {loaded} fingerprints")
 
     async def load(self) -> None:
         """Download the full ja4db and index it by JA4 hash. Safe to call at startup."""
@@ -97,14 +133,20 @@ class Ja4Database:
         except Exception as exc:
             log.warning(f"ja4db unavailable ({exc}) - heuristics only")
 
+        self._load_local_catalogue()
+
     def lookup(self, ja4: str) -> Classification | None:
         """
-        Return a Classification if the hash is in ja4db, otherwise None.
+        Return a Classification if the hash is in ja4db or local catalogue, otherwise None.
         Caller should fall back to heuristic classify() on None.
         """
         record = self._db.get(ja4)
         if not record:
             return None
+
+        # Local catalogue entries have a "ja4" key; ja4db entries have "ja4_fingerprint".
+        if "ja4" in record and "ja4_fingerprint" not in record:
+            return _from_catalogue_entry(record)
 
         return Classification(
             client_type=_infer_type(record),
