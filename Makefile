@@ -1,5 +1,6 @@
-.PHONY: certs build up down logs test-curl test-python test-node dump-logs query-logs \
-        provision-certs up-prod down-prod logs-prod renew-certs clean
+.PHONY: certs build up down logs test-curl test-python test-node test-agent dump-logs \
+        query-logs capture-fingerprint provision-certs up-prod down-prod logs-prod \
+        renew-certs clean
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
@@ -30,10 +31,15 @@ logs:
 # Each client produces a different TLS fingerprint. Watch the proxy logs
 # alongside these commands to see real-time classification.
 
-# curl uses OpenSSL — classified as "tool"
+# curl uses OpenSSL — classified as "tool", routed to human backend
 test-curl:
 	@echo "--- curl (OpenSSL) ---"
 	curl -sk https://localhost:8443/ | python3 -m json.tool 2>/dev/null || curl -sk https://localhost:8443/
+
+# Hit the agent backend directly to verify it returns JSON
+test-agent:
+	@echo "--- agent backend (direct) ---"
+	curl -s http://localhost:8001/ | python3 -m json.tool
 
 # Python urllib — classified as "agent" (Linux OpenSSL) or "agent/macOS" (Apple TLS)
 test-python:
@@ -55,6 +61,15 @@ test-go-sim:
 test-debug:
 	@echo "--- Debug headers ---"
 	curl -sk https://localhost:8443/debug | python3 -m json.tool
+
+# ── Fingerprint capture ────────────────────────────────────────────────────
+
+# Print the latest fingerprint log entry (ja4, client_type, detail, alpn).
+# Run after scripts/capture_sdk.py to confirm the JA4 was captured.
+capture-fingerprint:
+	@docker compose exec proxy sh -c \
+	  'tail -1 /data/fingerprints/fingerprints.ndjson 2>/dev/null || echo "No log file yet."' \
+	  | python3 -c "import sys,json; d=json.loads(sys.stdin.read().strip()); print(json.dumps({k:d.get(k) for k in ['ja4','client_type','detail','alpn']},indent=2))"
 
 # ── Log inspection ─────────────────────────────────────────────────────────
 #

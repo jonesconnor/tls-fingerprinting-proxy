@@ -24,14 +24,18 @@ services:
     environment:
       LISTEN_HOST: "0.0.0.0"
       PROXY_PORT: "443"
-      BACKEND_HOST: "backend"
-      BACKEND_PORT: "8080"
+      HUMAN_BACKEND_HOST: "backend"
+      HUMAN_BACKEND_PORT: "8080"
+      AGENT_BACKEND_HOST: "agent"
+      AGENT_BACKEND_PORT: "8001"
       CERT_FILE: "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
       KEY_FILE: "/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
       LOG_DIR: "/data/fingerprints"
       LOG_RETENTION_DAYS: "7"
     depends_on:
       backend:
+        condition: service_started
+      agent:
         condition: service_started
     networks:
       - internal
@@ -43,6 +47,16 @@ services:
       - "8080"
     environment:
       BACKEND_PORT: "8080"
+    networks:
+      - internal
+    restart: unless-stopped
+
+  agent:
+    build: ./agent
+    expose:
+      - "8001"
+    environment:
+      AGENT_PORT: "8001"
     networks:
       - internal
     restart: unless-stopped
