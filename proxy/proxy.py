@@ -44,15 +44,27 @@ log = logging.getLogger("proxy")
 # ---------------------------------------------------------------------------
 # Configuration (override via environment variables)
 # ---------------------------------------------------------------------------
-LISTEN_HOST   = os.getenv("LISTEN_HOST",   "0.0.0.0")
-LISTEN_PORT   = int(os.getenv("PROXY_PORT",    "8443"))
-BACKEND_HOST  = os.getenv("BACKEND_HOST",  "backend")
-BACKEND_PORT  = int(os.getenv("BACKEND_PORT",  "8080"))
-CERT_FILE     = os.getenv("CERT_FILE",     "/certs/proxy.crt")
-KEY_FILE      = os.getenv("KEY_FILE",      "/certs/proxy.key")
+LISTEN_HOST         = os.getenv("LISTEN_HOST",         "0.0.0.0")
+LISTEN_PORT         = int(os.getenv("PROXY_PORT",      "8443"))
+HUMAN_BACKEND_HOST  = os.getenv("HUMAN_BACKEND_HOST",  "backend")
+HUMAN_BACKEND_PORT  = int(os.getenv("HUMAN_BACKEND_PORT", "8080"))
+AGENT_BACKEND_HOST  = os.getenv("AGENT_BACKEND_HOST",  "agent")
+AGENT_BACKEND_PORT  = int(os.getenv("AGENT_BACKEND_PORT", "8001"))
+CERT_FILE           = os.getenv("CERT_FILE",           "/certs/proxy.crt")
+KEY_FILE            = os.getenv("KEY_FILE",            "/certs/proxy.key")
 
 # Bytes to peek. A ClientHello is almost always < 2 KB; 16 KB is more than safe.
 PEEK_SIZE = 16_384
+
+# client_type values that route to the agent backend
+_AGENT_TYPES = {"agent", "tool", "headless"}
+
+
+def _select_backend(clf) -> tuple[str, int]:
+    """Return (host, port) for the backend that should handle this client."""
+    if clf.client_type in _AGENT_TYPES:
+        return (AGENT_BACKEND_HOST, AGENT_BACKEND_PORT)
+    return (HUMAN_BACKEND_HOST, HUMAN_BACKEND_PORT)
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +164,8 @@ async def _read_http_request(ssl_sock: ssl.SSLSocket, loop: asyncio.AbstractEven
 async def _forward_to_backend(
     request: bytes,
     loop: asyncio.AbstractEventLoop,
+    host: str,
+    port: int,
 ) -> bytes:
     """
     Open a plain TCP connection to the backend, forward the HTTP request,
@@ -160,7 +174,7 @@ async def _forward_to_backend(
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setblocking(False)
-        await loop.sock_connect(sock, (BACKEND_HOST, BACKEND_PORT))
+        await loop.sock_connect(sock, (host, port))
         await loop.sock_sendall(sock, request)
 
         response = bytearray()
@@ -263,8 +277,9 @@ async def handle_connection(
         # ── 5. Inject classification headers ────────────────────────────────
         modified = _inject_headers(request_bytes, ja4, clf)
 
-        # ── 6. Forward to backend ────────────────────────────────────────────
-        response = await _forward_to_backend(modified, loop)
+        # ── 6. Select backend and forward ────────────────────────────────────
+        backend_host, backend_port = _select_backend(clf)
+        response = await _forward_to_backend(modified, loop, backend_host, backend_port)
 
         # ── 7. Return response to client ─────────────────────────────────────
         await loop.run_in_executor(None, lambda: ssl_sock.sendall(response))
@@ -298,7 +313,8 @@ async def main() -> None:
     server_sock.setblocking(False)
 
     log.info(f"Fingerprinting proxy listening on {LISTEN_HOST}:{LISTEN_PORT}")
-    log.info(f"Forwarding to backend at {BACKEND_HOST}:{BACKEND_PORT}")
+    log.info(f"Human backend:  {HUMAN_BACKEND_HOST}:{HUMAN_BACKEND_PORT}")
+    log.info(f"Agent backend:  {AGENT_BACKEND_HOST}:{AGENT_BACKEND_PORT}")
     log.info(f"TLS cert: {CERT_FILE}")
 
     while True:
