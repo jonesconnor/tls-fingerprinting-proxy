@@ -27,6 +27,13 @@ LINKS = [
 ]
 
 
+# The proxy reads backend responses until the server closes the connection.
+# Uvicorn defaults to HTTP/1.1 keep-alive (5s timeout), which would cause the
+# proxy to block for 5 seconds per request. Connection: close tells uvicorn to
+# close immediately after each response.
+_HEADERS = {"Connection": "close"}
+
+
 @app.get("/")
 def index():
     return JSONResponse(
@@ -35,13 +42,14 @@ def index():
             "owner": OWNER,
             "links": LINKS,
             "note": "I know you're an agent.",
-        }
+        },
+        headers=_HEADERS,
     )
 
 
 @app.get("/health")
 def health():
-    return JSONResponse(content={"status": "ok"})
+    return JSONResponse(content={"status": "ok"}, headers=_HEADERS)
 
 
 if __name__ == "__main__":
