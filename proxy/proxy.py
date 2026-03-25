@@ -161,6 +161,57 @@ async def _read_http_request(ssl_sock: ssl.SSLSocket, loop: asyncio.AbstractEven
     return headers_raw + b"\r\n\r\n" + bytes(body_so_far)
 
 
+async def _read_chunked_body(
+    initial: bytearray,
+    sock: socket.socket,
+    loop: asyncio.AbstractEventLoop,
+) -> bytes:
+    """
+    Decode a chunked transfer-encoded body from a plain (non-SSL) socket.
+
+    Chunk wire format:
+        <hex_size>[; extension]\r\n
+        <data>\r\n
+        ...
+        0\r\n
+        \r\n
+
+    Reads more bytes from sock as needed. Raises ValueError on parse error
+    (caller should fall back to reading until EOF).
+    """
+    buf = bytearray(initial)
+    decoded = bytearray()
+
+    while True:
+        # Find the chunk-size line
+        crlf = buf.find(b"\r\n")
+        while crlf == -1:
+            more = await loop.sock_recv(sock, 65536)
+            if not more:
+                raise ValueError("connection closed before chunk-size line")
+            buf.extend(more)
+            crlf = buf.find(b"\r\n")
+
+        size_line = buf[:crlf].split(b";")[0].strip()
+        chunk_size = int(size_line, 16)
+        buf = buf[crlf + 2:]  # consume size line + CRLF
+
+        if chunk_size == 0:
+            break  # terminal chunk
+
+        # Ensure we have chunk_size data bytes + the trailing CRLF
+        while len(buf) < chunk_size + 2:
+            more = await loop.sock_recv(sock, 65536)
+            if not more:
+                raise ValueError("connection closed during chunk data")
+            buf.extend(more)
+
+        decoded.extend(buf[:chunk_size])
+        buf = buf[chunk_size + 2:]  # consume data + trailing CRLF
+
+    return bytes(decoded)
+
+
 async def _forward_to_backend(
     request: bytes,
     loop: asyncio.AbstractEventLoop,
@@ -170,6 +221,18 @@ async def _forward_to_backend(
     """
     Open a plain TCP connection to the backend, forward the HTTP request,
     and return the full response.
+
+    Response framing (RFC 7230 §3.3), checked in order:
+      1. Content-Length  — read exactly N bytes, then stop.
+      2. Transfer-Encoding: chunked — decode chunk stream until terminal 0-chunk.
+         Malformed chunk encoding falls back to reading until connection close.
+      3. Neither — read until the server closes the connection (HTTP/1.0 style).
+
+    Known limitations (out of scope for the demo):
+      - HEAD responses: Content-Length present but no body; would block.
+        Neither backend handles HEAD, so this is not a blocker.
+      - HTTP 1xx interim responses: not handled.
+      - Full response is buffered in memory before forwarding.
     """
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -177,15 +240,70 @@ async def _forward_to_backend(
         await loop.sock_connect(sock, (host, port))
         await loop.sock_sendall(sock, request)
 
-        response = bytearray()
-        while True:
+        # ── Read response headers ────────────────────────────────────────────
+        buf = bytearray()
+        header_end = -1
+        while header_end == -1:
             chunk = await loop.sock_recv(sock, 65536)
             if not chunk:
                 break
-            response.extend(chunk)
+            buf.extend(chunk)
+            header_end = buf.find(b"\r\n\r\n")
+
+        if header_end == -1:
+            # Connection closed before headers were complete
+            sock.close()
+            return bytes(buf)
+
+        headers_raw = bytes(buf[:header_end])
+        body = bytearray(buf[header_end + 4:])
+
+        # ── Parse framing headers ────────────────────────────────────────────
+        content_length = -1
+        transfer_chunked = False
+        for line in headers_raw.split(b"\r\n")[1:]:
+            lower = line.lower()
+            if lower.startswith(b"content-length:"):
+                try:
+                    content_length = int(line.split(b":", 1)[1].strip())
+                except ValueError:
+                    pass
+            elif lower.startswith(b"transfer-encoding:") and b"chunked" in lower:
+                transfer_chunked = True
+
+        # ── Read body ────────────────────────────────────────────────────────
+        if content_length >= 0:
+            # Content-Length: read exactly N bytes (0 is valid — 204 No Content)
+            while len(body) < content_length:
+                needed = content_length - len(body)
+                chunk = await loop.sock_recv(sock, min(needed, 65536))
+                if not chunk:
+                    break
+                body.extend(chunk)
+
+        elif transfer_chunked:
+            # Chunked: decode stream; fall back to EOF on parse error
+            try:
+                body = bytearray(await _read_chunked_body(body, sock, loop))
+            except Exception as exc:
+                log.warning(f"chunked decode failed ({exc}), falling back to EOF read")
+                while True:
+                    chunk = await loop.sock_recv(sock, 65536)
+                    if not chunk:
+                        break
+                    body.extend(chunk)
+
+        else:
+            # Neither: read until server closes connection (HTTP/1.0 style)
+            while True:
+                chunk = await loop.sock_recv(sock, 65536)
+                if not chunk:
+                    break
+                body.extend(chunk)
 
         sock.close()
-        return bytes(response)
+        return headers_raw + b"\r\n\r\n" + bytes(body)
+
     except Exception as exc:
         log.error(f"Backend error: {exc}")
         body = b"502 Bad Gateway - backend unreachable"
@@ -238,6 +356,9 @@ async def handle_connection(
         ja4 = "parse_error" if ch.parse_error else compute_ja4(ch)
         raw = {} if ch.parse_error else compute_ja4_raw(ch)
         clf = db.lookup(ja4) or classify(ja4, ch)
+
+        if clf.client_type == "unknown":
+            log.warning(f"{client_ip}: unknown fingerprint {ja4} — not in ja4db or catalogue")
 
         log.info(
             f"{client_ip:>15} | {ja4} | {clf.client_type:8} ({clf.confidence}) | {clf.detail}"
