@@ -21,7 +21,9 @@ services:
     volumes:
       - ./certs/letsencrypt:/etc/letsencrypt:ro
       - fingerprint-logs:/data/fingerprints
+      - ./catalogue:/data/catalogue:ro
     environment:
+      CATALOGUE_PATH: "/data/catalogue/ai-sdk-fingerprints.json"
       LISTEN_HOST: "0.0.0.0"
       PROXY_PORT: "443"
       HUMAN_BACKEND_HOST: "backend"
@@ -55,8 +57,11 @@ services:
     build: ./agent
     expose:
       - "8001"
+    volumes:
+      - ./catalogue:/data/catalogue:ro
     environment:
       AGENT_PORT: "8001"
+      CATALOGUE_PATH: "/data/catalogue/ai-sdk-fingerprints.json"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 10s
