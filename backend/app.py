@@ -96,6 +96,15 @@ ARTICLE = {
     ],
 }
 
+POSTS = [
+    {
+        "title": "What Your TLS Handshake Reveals About You",
+        "url": "/writing/tls-fingerprinting",
+        "date_display": "Jan 2025",
+        "reading_time_minutes": 4,
+    },
+]
+
 RELATED = [
     {
         "title": "JA4+ Specification",
@@ -231,6 +240,40 @@ def index():
     if wants_html:
         return render_template(
             "index.html",
+            posts=POSTS,
+            classification=classification,
+        )
+    else:
+        return app.response_class(
+            response=json.dumps(_agent_response(classification), indent=2),
+            status=200,
+            mimetype="application/json",
+        )
+
+
+@app.route("/writing/tls-fingerprinting")
+def article_tls_fingerprinting():
+    client_type = request.headers.get("X-Client-Type", "unknown")
+    ja4          = request.headers.get("X-Client-JA4", "")
+    detail       = request.headers.get("X-Client-Detail", "")
+    confidence   = request.headers.get("X-Client-Confidence", "low")
+    signals_raw  = request.headers.get("X-Client-Signals", "")
+    signals      = [s for s in signals_raw.split(",") if s]
+
+    classification = {
+        "client_type": client_type,
+        "ja4": ja4,
+        "detail": detail,
+        "confidence": confidence,
+        "signals": signals,
+    }
+
+    accept = request.headers.get("Accept", "")
+    wants_html = client_type == "browser" or "text/html" in accept
+
+    if wants_html:
+        return render_template(
+            "article.html",
             article=ARTICLE,
             related=RELATED,
             classification=classification,
