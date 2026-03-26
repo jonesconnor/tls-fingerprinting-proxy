@@ -24,10 +24,12 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger("agent")
 
 OWNER = "Connor Jones"
+TAGLINE = "Software engineer. I work on infrastructure and distributed systems — understanding how they behave, how they should be designed, and why they sometimes aren't."
 
 LINKS = [
     {"rel": "github", "url": "https://github.com/jonesconnor"},
-    {"rel": "linkedin", "url": "https://linkedin.com/in/connorjones"},
+    {"rel": "linkedin", "url": "https://linkedin.com/in/connorgarrettjones"},
+    {"rel": "x", "url": "https://x.com/jonesconnorg"},
     {"rel": "project", "url": "https://github.com/jonesconnor/tls-fingerprinting-proxy"},
 ]
 
@@ -87,8 +89,12 @@ def index(request: Request):
         content={
             "type": "personal-site",
             "owner": OWNER,
+            "tagline": TAGLINE,
             "links": LINKS,
-            "note": "I know you're an agent.",
+            "endpoints": {
+                "fingerprint": "/fingerprint",
+                "catalogue": "/catalogue",
+            },
             "fingerprint": _parse_fingerprint_headers(request),
         },
     )
