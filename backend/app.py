@@ -96,6 +96,15 @@ ARTICLE = {
     ],
 }
 
+POSTS = [
+    {
+        "title": "What Your TLS Handshake Reveals About You",
+        "url": "/writing/tls-fingerprinting",
+        "date_display": "Jan 2025",
+        "reading_time_minutes": 4,
+    },
+]
+
 RELATED = [
     {
         "title": "JA4+ Specification",
@@ -119,7 +128,7 @@ RELATED = [
 # Helper: build the structured JSON response for agents
 # ---------------------------------------------------------------------------
 
-def _agent_response(classification: dict) -> dict:
+def _agent_response(classification: dict, canonical_path: str | None = None) -> dict:
     """
     Build a structured JSON representation optimized for machine consumption.
 
@@ -131,13 +140,14 @@ def _agent_response(classification: dict) -> dict:
     - Self-describing: the response explains what detected the agent and why
     """
     base_url = request.host_url.rstrip("/")
+    resolved_path = canonical_path or ARTICLE["canonical_url"]
 
     return {
         "type": "article",
         "id": ARTICLE["id"],
         "title": ARTICLE["title"],
         "subtitle": ARTICLE["subtitle"],
-        "canonical_url": f"{base_url}{ARTICLE['canonical_url']}",
+        "canonical_url": f"{base_url}{resolved_path}",
         "metadata": {
             "author": ARTICLE["author"],
             "published_at": ARTICLE["published_at"],
@@ -205,39 +215,56 @@ def _agent_response(classification: dict) -> dict:
 # Routes
 # ---------------------------------------------------------------------------
 
-@app.route("/")
-def index():
-    # Read classification headers injected by the proxy
+def _get_classification() -> tuple[dict, bool]:
+    """Read proxy classification headers and resolve content negotiation."""
     client_type = request.headers.get("X-Client-Type", "unknown")
-    ja4          = request.headers.get("X-Client-JA4", "")
-    detail       = request.headers.get("X-Client-Detail", "")
-    confidence   = request.headers.get("X-Client-Confidence", "low")
-    signals_raw  = request.headers.get("X-Client-Signals", "")
-    signals      = [s for s in signals_raw.split(",") if s]
-
     classification = {
         "client_type": client_type,
-        "ja4": ja4,
-        "detail": detail,
-        "confidence": confidence,
-        "signals": signals,
+        "ja4":         request.headers.get("X-Client-JA4", ""),
+        "detail":      request.headers.get("X-Client-Detail", ""),
+        "confidence":  request.headers.get("X-Client-Confidence", "low"),
+        "signals":     [s for s in request.headers.get("X-Client-Signals", "").split(",") if s],
     }
-
-    # Content negotiation: browsers get HTML, everything else gets JSON.
-    # Agents can override by sending Accept: text/html if they want the HTML.
-    accept = request.headers.get("Accept", "")
+    accept     = request.headers.get("Accept", "")
     wants_html = client_type == "browser" or "text/html" in accept
+    return classification, wants_html
+
+
+@app.route("/")
+def index():
+    classification, wants_html = _get_classification()
 
     if wants_html:
         return render_template(
             "index.html",
+            posts=POSTS,
+            classification=classification,
+        )
+    else:
+        return app.response_class(
+            response=json.dumps(_agent_response(classification), indent=2),
+            status=200,
+            mimetype="application/json",
+        )
+
+
+@app.route("/writing/tls-fingerprinting")
+def article_tls_fingerprinting():
+    classification, wants_html = _get_classification()
+
+    if wants_html:
+        return render_template(
+            "article.html",
             article=ARTICLE,
             related=RELATED,
             classification=classification,
         )
     else:
         return app.response_class(
-            response=json.dumps(_agent_response(classification), indent=2),
+            response=json.dumps(
+                _agent_response(classification, canonical_path="/writing/tls-fingerprinting"),
+                indent=2,
+            ),
             status=200,
             mimetype="application/json",
         )
