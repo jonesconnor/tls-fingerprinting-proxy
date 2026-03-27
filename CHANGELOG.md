@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.3] - 2026-03-26
+
+### Changed
+- Homepage social links: GitHub, LinkedIn, and X now display as icon-only (no text label); mail link unchanged with email written out
+
 ## [2.7.2] - 2026-03-25
 
 ### Changed
