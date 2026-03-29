@@ -114,7 +114,7 @@ def merge_catalogue(
             added += 1
             print(f"  + {entry['sdk']} ({entry['os']})  {ja4}")
 
-    merged = list(by_ja4.values())
+    merged = sorted(by_ja4.values(), key=lambda e: (e["sdk"], e.get("os", "")))
 
     # Atomic write: write to a temp file, then rename into place
     tmp_out = catalogue_path.with_suffix(".tmp")

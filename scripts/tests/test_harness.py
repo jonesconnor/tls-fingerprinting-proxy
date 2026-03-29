@@ -109,10 +109,11 @@ class TestNdjsonFilter:
 
     def test_handles_z_suffix_timestamps(self):
         t = datetime(2026, 3, 26, 12, 0, 0, tzinfo=timezone.utc)
-        # Some loggers emit "Z" instead of "+00:00"
-        line = _make_ndjson_line("2026-03-26T12:00:01+00:00", ja4="z_ts")
+        # Some loggers emit "Z" instead of "+00:00"; fromisoformat rejects "Z" on Python < 3.11
+        line = _make_ndjson_line("2026-03-26T12:00:01Z", ja4="z_ts")
         result = filter_ndjson_after(line, t)
         assert result is not None
+        assert result["ja4"] == "z_ts"
 
     def test_naive_t_treated_as_utc(self):
         # T without tzinfo should be treated as UTC (not local time)

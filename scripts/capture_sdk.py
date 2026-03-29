@@ -117,7 +117,8 @@ SDK_CONFIGS: dict[str, dict] = {
         "package": "cohere",
         "request_code": (
             "import cohere; "
-            "cohere.Client(api_key='dummy', base_url='{url}').generate(prompt='hi')"
+            "cohere.ClientV2(api_key='dummy', base_url='{url}').chat("
+            "model='command-r', messages=[{'role': 'user', 'content': 'hi'}])"
         ),
         "env_vars": {},
     },
@@ -170,7 +171,7 @@ def filter_ndjson_after(ndjson_content: str, t: datetime) -> dict | None:
         if not ts_str:
             continue
         try:
-            ts = datetime.fromisoformat(ts_str)
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
             if ts.astimezone(timezone.utc) >= t_utc:
                 return entry
         except ValueError:
@@ -281,7 +282,7 @@ def _run_request_linux(package: str, request_code: str, env_vars: dict) -> None:
     install_cmd = f"pip install {shlex.quote(package)} --quiet"
     run_cmd = f"{install_cmd} && python3 -c {json.dumps(request_code)}"
 
-    subprocess.run(
+    result = subprocess.run(
         [
             "docker", "run", "--rm",
             "--add-host=host.docker.internal:host-gateway",
@@ -292,6 +293,12 @@ def _run_request_linux(package: str, request_code: str, env_vars: dict) -> None:
         capture_output=True,
         cwd=PROJECT_ROOT,
     )
+    if result.returncode != 0:
+        print(
+            f"  WARNING: docker run exited {result.returncode} — "
+            f"fingerprint may not have been captured.\n"
+            f"  stderr: {result.stderr.decode(errors='replace').strip()[:300]}"
+        )
 
 
 def _get_linux_metadata(package: str) -> tuple[str, str, str]:

@@ -153,11 +153,11 @@ renew-certs:
 
 capture-sdk:
 	@test -n "$(SDK)" || (echo "Usage: make capture-sdk SDK=openai-python" && exit 1)
-	python3 scripts/capture_sdk.py --sdk $(SDK)
+	python3 scripts/capture_sdk.py --sdk '$(SDK)'
 
 capture-sdk-linux:
 	@test -n "$(SDK)" || (echo "Usage: make capture-sdk-linux SDK=openai-python" && exit 1)
-	python3 scripts/capture_sdk.py --sdk $(SDK) --linux
+	python3 scripts/capture_sdk.py --sdk '$(SDK)' --linux
 
 # Hidden per-SDK targets used by capture-all / capture-all-linux
 $(addprefix _capture-macos-,$(_SDKS)): _capture-macos-%:
