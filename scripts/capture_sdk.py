@@ -62,9 +62,11 @@ CAPTURE_TMP_DIR  = PROJECT_ROOT / ".capture-tmp"
 SCHEMA_PATH      = CATALOGUE_DIR / "schema.json"
 
 # Proxy endpoint — /health always responds quickly regardless of backend routing.
-PROXY_URL        = "https://localhost:8443"
+# Override port with CAPTURE_PROXY_PORT env var (e.g. prod uses 443 instead of 8443).
+_capture_port    = os.getenv("CAPTURE_PROXY_PORT", "8443")
+PROXY_URL        = f"https://localhost:{_capture_port}"
 # Reachable from inside a Docker container on the same host (macOS + Linux).
-LINUX_PROXY_URL  = "https://host.docker.internal:8443"
+LINUX_PROXY_URL  = f"https://host.docker.internal:{_capture_port}"
 
 # ── SDK dispatch table ──────────────────────────────────────────────────────
 #
