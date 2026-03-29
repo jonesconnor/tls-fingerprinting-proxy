@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.4] - 2026-03-29
+
+### Added
+- `scripts/capture_sdk.py`: automated SDK fingerprint capture harness — creates a temp venv, installs the target SDK, fires a request through the proxy, polls the NDJSON log for the resulting JA4 fingerprint, and writes a validated entry to `.capture-tmp/`
+- `scripts/merge_catalogue.py`: merges `.capture-tmp/*.json` entries into `catalogue/ai-sdk-fingerprints.json` with duplicate JA4 detection and atomic writes via `os.replace()`
+- `catalogue/schema.json`: JSON Schema for catalogue entry validation (8 required fields, `additionalProperties: false`)
+- `scripts/tests/test_harness.py`: 24 unit tests covering NDJSON filtering, schema validation, SDK dispatch table, and catalogue merge logic
+- `scripts/pyproject.toml`: pytest configuration for the scripts package
+- Makefile targets: `capture-sdk`, `capture-sdk-linux`, `capture-all`, `capture-all-linux`, `merge-catalogue`; parallel execution via `make -j 4`
+
+### Fixed
+- `capture_sdk.py`: normalize `Z`-suffix timestamps before `fromisoformat` for Python <3.11 compatibility
+- `capture_sdk.py`: update cohere SDK config to v5 API (`ClientV2.chat`) — `Client.generate` was removed in cohere v5
+- `capture_sdk.py`: log warning when Linux Docker container exits non-zero instead of silently continuing
+- `capture_sdk.py`: apply `shlex.quote()` to package name in both `_run_request_linux` and `_get_linux_metadata` bash commands
+- `merge_catalogue.py`: sort output by `sdk` + `os` for deterministic catalogue ordering across runs
+- Makefile: quote `$(SDK)` expansion in `capture-sdk` / `capture-sdk-linux` targets
+
 ## [2.7.3] - 2026-03-26
 
 ### Changed
