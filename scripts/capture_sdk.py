@@ -313,7 +313,7 @@ def _get_linux_metadata(package: str) -> tuple[str, str, str]:
         [
             "docker", "run", "--rm", "python:3.11",
             "bash", "-c",
-            f"pip install {package} --quiet && python3 -c {json.dumps(meta_script)}",
+            f"pip install {shlex.quote(package)} --quiet && python3 -c {json.dumps(meta_script)}",
         ],
         capture_output=True,
         text=True,
