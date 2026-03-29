@@ -46,6 +46,7 @@ import argparse
 import json
 import os
 import platform
+import shlex
 import shutil
 import ssl
 import subprocess
@@ -277,7 +278,7 @@ def _run_request_linux(package: str, request_code: str, env_vars: dict) -> None:
     for k, v in env_vars.items():
         env_flags += ["-e", f"{k}={v}"]
 
-    install_cmd = f"pip install {package} --quiet"
+    install_cmd = f"pip install {shlex.quote(package)} --quiet"
     run_cmd = f"{install_cmd} && python3 -c {json.dumps(request_code)}"
 
     subprocess.run(
