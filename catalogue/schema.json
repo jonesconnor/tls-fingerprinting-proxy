@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI SDK TLS Fingerprint Entry",
+  "type": "object",
+  "required": [
+    "sdk",
+    "sdk_version",
+    "python_version",
+    "os",
+    "tls_library",
+    "ja4",
+    "alpn_present",
+    "captured_at"
+  ],
+  "properties": {
+    "sdk":            { "type": "string", "minLength": 1 },
+    "sdk_version":    { "type": "string", "minLength": 1 },
+    "python_version": { "type": "string", "minLength": 1 },
+    "os":             { "type": "string", "minLength": 1 },
+    "tls_library":    { "type": "string", "minLength": 1 },
+    "ja4":            { "type": "string", "minLength": 1 },
+    "alpn_present":   { "type": "boolean" },
+    "captured_at":    { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

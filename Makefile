@@ -1,6 +1,10 @@
 .PHONY: certs build up down logs test-curl test-python test-node test-agent dump-logs \
         query-logs capture-fingerprint provision-certs up-prod down-prod logs-prod \
-        renew-certs clean
+        renew-certs clean \
+        capture-sdk capture-sdk-linux capture-all capture-all-linux merge-catalogue \
+        $(addprefix _capture-macos-,$(_SDKS)) $(addprefix _capture-linux-,$(_SDKS))
+
+_SDKS := openai-python anthropic-python httpx requests langchain-openai cohere llama-index-core
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
@@ -129,6 +133,49 @@ renew-certs:
 	  -v "$(CURDIR)/certs/letsencrypt:/etc/letsencrypt" \
 	  certbot/certbot renew --standalone
 	docker compose -f docker-compose.prod.yml restart proxy
+
+# ── SDK fingerprint capture ────────────────────────────────────────────────
+#
+# Prerequisites: proxy stack must be running (make up).
+#
+# Single SDK capture (macOS / host Python):
+#   make capture-sdk SDK=openai-python
+#
+# Single SDK capture (Linux OpenSSL via python:3.11 Docker):
+#   make capture-sdk-linux SDK=openai-python
+#
+# Capture all SDKs in parallel, then merge into catalogue:
+#   make capture-all          # macOS
+#   make capture-all-linux    # Linux
+#
+# Merge .capture-tmp/*.json into catalogue/ai-sdk-fingerprints.json:
+#   make merge-catalogue
+
+capture-sdk:
+	@test -n "$(SDK)" || (echo "Usage: make capture-sdk SDK=openai-python" && exit 1)
+	python3 scripts/capture_sdk.py --sdk '$(SDK)'
+
+capture-sdk-linux:
+	@test -n "$(SDK)" || (echo "Usage: make capture-sdk-linux SDK=openai-python" && exit 1)
+	python3 scripts/capture_sdk.py --sdk '$(SDK)' --linux
+
+# Hidden per-SDK targets used by capture-all / capture-all-linux
+$(addprefix _capture-macos-,$(_SDKS)): _capture-macos-%:
+	python3 scripts/capture_sdk.py --sdk $*
+
+$(addprefix _capture-linux-,$(_SDKS)): _capture-linux-%:
+	python3 scripts/capture_sdk.py --sdk $* --linux
+
+capture-all:
+	$(MAKE) -j 4 $(addprefix _capture-macos-,$(_SDKS))
+	$(MAKE) merge-catalogue
+
+capture-all-linux:
+	$(MAKE) -j 4 $(addprefix _capture-linux-,$(_SDKS))
+	$(MAKE) merge-catalogue
+
+merge-catalogue:
+	python3 scripts/merge_catalogue.py
 
 # ── Utilities ──────────────────────────────────────────────────────────────
 
