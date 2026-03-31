@@ -73,9 +73,13 @@ def _infer_type(record: dict) -> str:
 
 def _from_catalogue_entry(entry: dict) -> Classification:
     """Convert a local catalogue entry to a Classification."""
-    sdk = entry.get("sdk", "unknown SDK")
-    version = entry.get("sdk_version", "")
-    detail = f"{sdk} {version}".strip() if version else sdk
+    client = entry.get("http_client", "unknown")
+    version = entry.get("http_client_version", "")
+    runtime = entry.get("runtime", "")
+    detail_parts = [f"{client} {version}".strip() if version else client]
+    if runtime:
+        detail_parts.append(runtime)
+    detail = " / ".join(detail_parts)
     return Classification(
         client_type="agent",
         confidence="high",

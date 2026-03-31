@@ -48,7 +48,6 @@ import os
 import platform
 import shlex
 import shutil
-import ssl
 import subprocess
 import sys
 import tempfile
@@ -71,12 +70,16 @@ LINUX_PROXY_URL  = f"https://host.docker.internal:{_capture_port}"
 # ── SDK dispatch table ──────────────────────────────────────────────────────
 #
 # Each entry:
-#   package       pip install target
+#   runtime       language runtime label written to the catalogue
+#   http_client   HTTP client label written to the catalogue
+#   package       pip install target (used for pip show version lookup)
 #   request_code  Python one-liner (str.format receives `url=...`)
 #   env_vars      env vars injected into the subprocess environment
 
 SDK_CONFIGS: dict[str, dict] = {
     "openai-python": {
+        "runtime": "python",
+        "http_client": "openai",
         "package": "openai",
         "request_code": (
             "import openai, os; "
@@ -86,6 +89,8 @@ SDK_CONFIGS: dict[str, dict] = {
         "env_vars": {"OPENAI_API_KEY": "sk-dummy-00000000"},
     },
     "anthropic-python": {
+        "runtime": "python",
+        "http_client": "anthropic",
         "package": "anthropic",
         "request_code": (
             "import anthropic, os; "
@@ -98,16 +103,22 @@ SDK_CONFIGS: dict[str, dict] = {
         "env_vars": {"ANTHROPIC_API_KEY": "sk-ant-dummy-0000"},
     },
     "httpx": {
+        "runtime": "python",
+        "http_client": "httpx",
         "package": "httpx",
         "request_code": "import httpx; httpx.get('{url}', verify=False)",
         "env_vars": {},
     },
     "requests": {
+        "runtime": "python",
+        "http_client": "requests",
         "package": "requests",
         "request_code": "import requests; requests.get('{url}', verify=False)",
         "env_vars": {},
     },
     "langchain-openai": {
+        "runtime": "python",
+        "http_client": "langchain-openai",
         "package": "langchain-openai",
         "request_code": (
             "from langchain_openai import ChatOpenAI; "
@@ -116,6 +127,8 @@ SDK_CONFIGS: dict[str, dict] = {
         "env_vars": {"OPENAI_API_KEY": "sk-dummy-00000000"},
     },
     "cohere": {
+        "runtime": "python",
+        "http_client": "cohere",
         "package": "cohere",
         "request_code": (
             "import cohere; "
@@ -125,8 +138,9 @@ SDK_CONFIGS: dict[str, dict] = {
         "env_vars": {},
     },
     "llama-index-core": {
+        "runtime": "python",
+        "http_client": "httpx",  # llama-index delegates to httpx for HTTP transport
         "package": "llama-index-core",
-        # llama-index uses httpx as its underlying HTTP transport
         "request_code": "import httpx; httpx.get('{url}', verify=False)",
         "env_vars": {},
     },
@@ -354,6 +368,8 @@ def capture(sdk_name: str, linux: bool = False) -> dict:
     config = SDK_CONFIGS[sdk_name]
     package = config["package"]
     env_vars = config["env_vars"]
+    runtime = config["runtime"]
+    http_client = config["http_client"]
 
     proxy_url = LINUX_PROXY_URL if linux else PROXY_URL
     request_code = config["request_code"].format(url=proxy_url)
@@ -366,7 +382,7 @@ def capture(sdk_name: str, linux: bool = False) -> dict:
         if linux:
             t = datetime.now(tz=timezone.utc)
             _run_request_linux(package, request_code, env_vars)
-            sdk_version, python_version, tls_library = _get_linux_metadata(package)
+            http_client_version, runtime_version, tls_library = _get_linux_metadata(package)
             os_label = "Linux"
         else:
             venv_dir = tempfile.mkdtemp(prefix=f"cap_{sdk_name.replace('-', '_')}_")
@@ -377,9 +393,9 @@ def capture(sdk_name: str, linux: bool = False) -> dict:
                 env={**os.environ, **env_vars},
                 capture_output=True,
             )
-            sdk_version   = _get_sdk_version(venv_python, package)
-            python_version = _get_python_version_from_venv(venv_python)
-            tls_library   = _get_tls_library_from_venv(venv_python)
+            http_client_version = _get_sdk_version(venv_python, package)
+            runtime_version     = _get_python_version_from_venv(venv_python)
+            tls_library         = _get_tls_library_from_venv(venv_python)
             os_label = f"{platform.system()} {platform.mac_ver()[0] or platform.release()}".strip()
     finally:
         if venv_dir:
@@ -393,14 +409,15 @@ def capture(sdk_name: str, linux: bool = False) -> dict:
     alpn_present = bool(alpn)
 
     entry: dict = {
-        "sdk":            sdk_name,
-        "sdk_version":    sdk_version,
-        "python_version": python_version,
-        "os":             os_label,
-        "tls_library":    tls_library,
-        "ja4":            ja4,
-        "alpn_present":   alpn_present,
-        "captured_at":    t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "runtime":             runtime,
+        "runtime_version":     runtime_version,
+        "http_client":         http_client,
+        "http_client_version": http_client_version,
+        "os":                  os_label,
+        "tls_library":         tls_library,
+        "ja4":                 ja4,
+        "alpn_present":        alpn_present,
+        "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
     validate_entry(entry)
@@ -409,12 +426,13 @@ def capture(sdk_name: str, linux: bool = False) -> dict:
     tmp_file = CAPTURE_TMP_DIR / f"{sdk_name}-{platform_label}.json"
     tmp_file.write_text(json.dumps(entry, indent=2) + "\n")
 
-    print(f"  sdk_version:  {sdk_version}")
-    print(f"  ja4:          {ja4}")
-    print(f"  os:           {os_label}")
-    print(f"  alpn_present: {alpn_present}")
-    print(f"  tls_library:  {tls_library}")
-    print(f"  written:      {os.path.relpath(tmp_file, PROJECT_ROOT)}")
+    print(f"  runtime:       {runtime} {runtime_version}")
+    print(f"  http_client:   {http_client} {http_client_version}")
+    print(f"  ja4:           {ja4}")
+    print(f"  os:            {os_label}")
+    print(f"  alpn_present:  {alpn_present}")
+    print(f"  tls_library:   {tls_library}")
+    print(f"  written:       {os.path.relpath(tmp_file, PROJECT_ROOT)}")
 
     return entry
 

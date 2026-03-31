@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from capture_sdk import SDK_CONFIGS, filter_ndjson_after, validate_entry, load_schema
-from merge_catalogue import merge_catalogue, load_existing_catalogue
+from merge_catalogue import merge_catalogue
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -29,14 +29,15 @@ from merge_catalogue import merge_catalogue, load_existing_catalogue
 SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "catalogue" / "schema.json"
 
 VALID_ENTRY = {
-    "sdk":            "httpx",
-    "sdk_version":    "0.27.0",
-    "python_version": "3.11.0",
-    "os":             "macOS 15.0",
-    "tls_library":    "LibreSSL 3.3.6",
-    "ja4":            "t13d1516h2_8daaf6152771_b0da82dd1658",
-    "alpn_present":   False,
-    "captured_at":    "2026-03-26T12:00:00Z",
+    "runtime":             "python",
+    "runtime_version":     "3.11.0",
+    "http_client":         "httpx",
+    "http_client_version": "0.27.0",
+    "os":                  "macOS 15.0",
+    "tls_library":         "LibreSSL 3.3.6",
+    "ja4":                 "t13d1516h2_8daaf6152771_b0da82dd1658",
+    "alpn_present":        False,
+    "captured_at":         "2026-03-26T12:00:00Z",
 }
 
 
@@ -163,7 +164,7 @@ class TestSchemaValidation:
 # ── TestSdkDispatchTable ─────────────────────────────────────────────────────
 
 class TestSdkDispatchTable:
-    REQUIRED_KEYS = {"package", "request_code", "env_vars"}
+    REQUIRED_KEYS = {"runtime", "http_client", "package", "request_code", "env_vars"}
 
     def test_all_sdk_names_resolve_to_valid_config(self):
         for name, config in SDK_CONFIGS.items():
@@ -219,33 +220,33 @@ class TestCatalogueAppend:
         assert result[0]["ja4"] == "t13d_new_aaa"
 
     def test_duplicate_ja4_warns_and_skips(self, tmp_path, capsys):
-        existing_entry = _make_entry(ja4="t13d_existing", sdk="httpx")
+        existing_entry = _make_entry(ja4="t13d_existing", http_client="httpx")
         catalogue = tmp_path / "fingerprints.json"
         catalogue.write_text(json.dumps([existing_entry]))
 
         tmp_dir = tmp_path / "capture-tmp"
         tmp_dir.mkdir()
-        duplicate = _make_entry(ja4="t13d_existing", sdk="requests")  # same ja4, different sdk
+        duplicate = _make_entry(ja4="t13d_existing", http_client="requests")  # same ja4, different client
         (tmp_dir / "requests-darwin.json").write_text(json.dumps(duplicate))
 
         result = merge_catalogue(tmp_dir=tmp_dir, catalogue_path=catalogue, schema_path=SCHEMA_PATH)
 
         # Entry count unchanged — duplicate was skipped
         assert len(result) == 1
-        assert result[0]["sdk"] == "httpx"  # original preserved
+        assert result[0]["http_client"] == "httpx"  # original preserved
 
         captured = capsys.readouterr()
         assert "WARNING" in captured.out
         assert "t13d_existing" in captured.out
 
     def test_existing_entries_preserved(self, tmp_path):
-        existing_entry = _make_entry(ja4="t13d_existing_bbb", sdk="requests")
+        existing_entry = _make_entry(ja4="t13d_existing_bbb", http_client="requests")
         catalogue = tmp_path / "fingerprints.json"
         catalogue.write_text(json.dumps([existing_entry]))
 
         tmp_dir = tmp_path / "capture-tmp"
         tmp_dir.mkdir()
-        new_entry = _make_entry(ja4="t13d_brand_new_ccc", sdk="httpx")
+        new_entry = _make_entry(ja4="t13d_brand_new_ccc", http_client="httpx")
         (tmp_dir / "httpx-darwin.json").write_text(json.dumps(new_entry))
 
         result = merge_catalogue(tmp_dir=tmp_dir, catalogue_path=catalogue, schema_path=SCHEMA_PATH)

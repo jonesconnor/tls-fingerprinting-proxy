@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 
 PROJECT_ROOT    = Path(__file__).resolve().parent.parent
@@ -103,18 +102,18 @@ def merge_catalogue(
 
         ja4 = entry["ja4"]
         if ja4 in by_ja4:
-            existing_sdk = by_ja4[ja4]["sdk"]
+            existing_client = by_ja4[ja4]["http_client"]
             print(
                 f"  WARNING: duplicate JA4 {ja4} "
-                f"({entry['sdk']} vs existing {existing_sdk}) — skipping"
+                f"({entry['http_client']} vs existing {existing_client}) — skipping"
             )
             skipped += 1
         else:
             by_ja4[ja4] = entry
             added += 1
-            print(f"  + {entry['sdk']} ({entry['os']})  {ja4}")
+            print(f"  + {entry['http_client']} ({entry['os']})  {ja4}")
 
-    merged = sorted(by_ja4.values(), key=lambda e: (e["sdk"], e.get("os", "")))
+    merged = sorted(by_ja4.values(), key=lambda e: (e["runtime"], e["http_client"], e.get("os", "")))
 
     # Atomic write: write to a temp file, then rename into place
     tmp_out = catalogue_path.with_suffix(".tmp")
