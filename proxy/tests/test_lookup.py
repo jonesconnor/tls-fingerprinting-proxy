@@ -19,14 +19,15 @@ def _write_catalogue(path, entries):
 
 
 SAMPLE_ENTRY = {
-    "sdk": "openai-python",
-    "sdk_version": "1.65.4",
-    "python_version": "3.11.x",
-    "os": "macOS 15",
-    "tls_library": "LibreSSL 3.x",
-    "ja4": "t13d0000h2_aabbccddeeff_aabbccddeeff",
-    "alpn_present": False,
-    "captured_at": "2026-03-21T12:00:00Z",
+    "runtime":             "python",
+    "runtime_version":     "3.11.x",
+    "http_client":         "openai",
+    "http_client_version": "1.65.4",
+    "os":                  "macOS 15",
+    "tls_library":         "LibreSSL 3.x",
+    "ja4":                 "t13d0000h2_aabbccddeeff_aabbccddeeff",
+    "alpn_present":        False,
+    "captured_at":         "2026-03-21T12:00:00Z",
 }
 
 
@@ -47,12 +48,12 @@ class TestCatalogueAdapter:
         clf = _from_catalogue_entry(SAMPLE_ENTRY)
         assert "catalogue_match" in clf.signals
 
-    def test_detail_includes_sdk_name(self):
+    def test_detail_includes_http_client(self):
         clf = _from_catalogue_entry(SAMPLE_ENTRY)
-        assert "openai-python" in clf.detail
+        assert "openai" in clf.detail
 
     def test_entry_without_version(self):
-        clf = _from_catalogue_entry({"sdk": "httpx", "ja4": "t13d..."})
+        clf = _from_catalogue_entry({"http_client": "httpx", "ja4": "t13d..."})
         assert clf.client_type == "agent"
         assert "httpx" in clf.detail
 
@@ -93,7 +94,7 @@ class TestLocalCatalogue:
 
     def test_entry_missing_ja4_key_is_skipped(self, db, tmp_path):
         entries = [
-            {"sdk": "no-ja4-key", "sdk_version": "1.0"},
+            {"http_client": "no-ja4-key", "http_client_version": "1.0"},
             SAMPLE_ENTRY,
         ]
         catalogue = tmp_path / "fingerprints.json"
@@ -125,7 +126,7 @@ class TestLocalCatalogue:
         # After loading, the catalogue entry should have overwritten the ja4db entry.
         # Catalogue entries have "ja4" key but not "ja4_fingerprint".
         assert "ja4_fingerprint" not in db._db[ja4_hash]
-        assert db._db[ja4_hash]["sdk"] == "openai-python"
+        assert db._db[ja4_hash]["http_client"] == "openai"
 
     def test_lookup_returns_agent_for_catalogue_entry(self, db, tmp_path):
         catalogue = tmp_path / "fingerprints.json"
