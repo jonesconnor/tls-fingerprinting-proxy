@@ -23,6 +23,7 @@ proxy (nginx, HAProxy, Envoy, Cloudflare) does.
 """
 
 import asyncio
+import concurrent.futures
 import logging
 import os
 import socket
@@ -379,6 +380,11 @@ async def handle_connection(
         # wrap_socket() initiates the TLS handshake, which reads the
         # ClientHello normally. From TLS's perspective, nothing unusual happened.
         #
+        # A timeout is set so that scanner/prober connections that hang
+        # mid-handshake release their executor thread instead of occupying
+        # it indefinitely.
+        #
+        client_sock.settimeout(10)
         try:
             ssl_sock: ssl.SSLSocket = await loop.run_in_executor(
                 None, lambda: ssl_ctx.wrap_socket(client_sock, server_side=True)
@@ -421,6 +427,7 @@ async def handle_connection(
 async def main() -> None:
     ssl_ctx = _build_ssl_context()
     loop = asyncio.get_running_loop()
+    loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=64))
 
     db = Ja4Database()
     await db.load()

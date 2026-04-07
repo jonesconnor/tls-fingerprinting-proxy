@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.5] - 2026-04-06
+
+### Fixed
+- `proxy.py`: set a 10-second socket timeout before `ssl_ctx.wrap_socket()` so scanner/prober connections that hang mid-handshake release their executor thread instead of occupying it indefinitely — previously caused thread pool exhaustion and full proxy unresponsiveness under scan traffic bursts
+- `proxy.py`: set an explicit `ThreadPoolExecutor(max_workers=64)` on startup instead of relying on the default (`min(32, cpu_count + 4)` = 5 threads on a 1-vCPU droplet), raising the practical concurrent-user ceiling from ~5 to ~50–100
+
 ## [2.7.4] - 2026-03-29
 
 ### Added
