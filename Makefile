@@ -2,9 +2,20 @@
         query-logs capture-fingerprint provision-certs up-prod down-prod logs-prod \
         renew-certs clean \
         capture-sdk capture-sdk-linux capture-all capture-all-linux merge-catalogue \
-        $(addprefix _capture-macos-,$(_SDKS)) $(addprefix _capture-linux-,$(_SDKS))
+        $(addprefix _capture-macos-,$(_SDKS)) $(addprefix _capture-linux-,$(_SDKS)) \
+        capture-runtime capture-runtime-linux capture-all-runtimes capture-all-runtimes-linux \
+        setup-playwright \
+        $(addprefix _capture-runtime-,$(_RUNTIMES)) \
+        $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES))
 
 _SDKS := openai-python anthropic-python httpx requests langchain-openai cohere llama-index-core
+
+# Runtimes captured by capture_runtime.py.
+# All runtimes: used for capture-all-runtimes (serialised — avoids TODO-8 race).
+_RUNTIMES := curl node-https node-fetch node-axios go-net-http rust-reqwest chrome-playwright
+# Linux-variant runtimes only: runtimes where TLS fingerprint differs on Linux.
+# Go, Rust, and Chromium use platform-independent TLS stacks — Linux capture is a no-op.
+_LINUX_RUNTIMES := curl node-https node-fetch node-axios
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
@@ -176,6 +187,68 @@ capture-all-linux:
 
 merge-catalogue:
 	python3 scripts/merge_catalogue.py
+
+# ── Language-runtime fingerprint capture ──────────────────────────────────
+#
+# Captures TLS fingerprints for non-Python runtimes: curl, Node.js (https,
+# fetch, axios), Go net/http, Rust reqwest, and Chrome headless (Playwright).
+#
+# Each runtime uses a different TLS stack, which produces a distinct JA4.
+# This is the core research contribution — SDK-level variance is small;
+# runtime-level variance is where the interesting signal lives.
+#
+# Prerequisites: proxy stack must be running (make up).
+#
+# Single runtime capture (native / macOS):
+#   make capture-runtime RUNTIME=curl
+#   make capture-runtime RUNTIME=go-net-http
+#   make capture-runtime RUNTIME=rust-reqwest
+#
+# Linux variant (only meaningful for curl and node-*):
+#   make capture-runtime-linux RUNTIME=curl
+#   make capture-runtime-linux RUNTIME=node-axios
+#
+# Capture all runtimes, serialised (avoids NDJSON attribution race):
+#   make capture-all-runtimes          # all native
+#   make capture-all-runtimes-linux    # Linux-variant runtimes only
+#
+# First-time Playwright setup (downloads ~200 MB Chromium binaries, once):
+#   make setup-playwright
+#
+# Merge results into catalogue:
+#   make merge-catalogue
+
+RUNTIME ?= curl
+
+capture-runtime:             ## Capture TLS fingerprint for one runtime (native)
+	@test -n "$(RUNTIME)" || (echo "Usage: make capture-runtime RUNTIME=curl" && exit 1)
+	python3 scripts/capture_runtime.py --runtime '$(RUNTIME)'
+
+capture-runtime-linux:       ## Linux-variant capture: make capture-runtime-linux RUNTIME=curl
+	@test -n "$(RUNTIME)" || (echo "Usage: make capture-runtime-linux RUNTIME=curl" && exit 1)
+	python3 scripts/capture_runtime.py --runtime '$(RUNTIME)' --linux
+
+# Hidden per-runtime targets used by capture-all-runtimes.
+# Serialised (-j 1) to avoid the NDJSON concurrent-capture race (TODO-8):
+# each worker records T before the request and polls for the first NDJSON
+# entry with ts >= T — under concurrency, a different worker's handshake
+# could be attributed to the wrong runtime.
+$(addprefix _capture-runtime-,$(_RUNTIMES)): _capture-runtime-%:
+	python3 scripts/capture_runtime.py --runtime $*
+
+$(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES)): _capture-runtime-linux-%:
+	python3 scripts/capture_runtime.py --runtime $* --linux
+
+capture-all-runtimes:        ## Capture all runtimes (serialised) then merge into catalogue
+	$(MAKE) -j 1 $(addprefix _capture-runtime-,$(_RUNTIMES))
+	$(MAKE) merge-catalogue
+
+capture-all-runtimes-linux:  ## Capture Linux-variant runtimes (curl, node-*) then merge
+	$(MAKE) -j 1 $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES))
+	$(MAKE) merge-catalogue
+
+setup-playwright:            ## One-time setup: install Playwright + download Chromium (~200 MB)
+	python3 -c "import sys; sys.path.insert(0,'scripts'); from capture_runtime import _ensure_playwright_env; _ensure_playwright_env()"
 
 # ── Utilities ──────────────────────────────────────────────────────────────
 

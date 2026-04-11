@@ -418,6 +418,7 @@ def capture(sdk_name: str, linux: bool = False) -> dict:
         "ja4":                 ja4,
         "alpn_present":        alpn_present,
         "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "client_type":         "agent",  # All Python AI SDK captures are AI agents.
     }
 
     validate_entry(entry)

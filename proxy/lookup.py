@@ -72,8 +72,16 @@ def _infer_type(record: dict) -> str:
 
 
 def _from_catalogue_entry(entry: dict) -> Classification:
-    """Convert a local catalogue entry to a Classification."""
-    client = entry.get("http_client", "unknown")
+    """
+    Convert a local catalogue entry to a Classification.
+
+    client_type is read from the entry when present. Entries captured before
+    the field was added to the schema default to "agent" for backward
+    compatibility (the catalogue originally contained only Python AI SDKs,
+    all of which are agents).
+    """
+    client_type = entry.get("client_type", "agent")
+    client  = entry.get("http_client", "unknown")
     version = entry.get("http_client_version", "")
     runtime = entry.get("runtime", "")
     detail_parts = [f"{client} {version}".strip() if version else client]
@@ -81,7 +89,7 @@ def _from_catalogue_entry(entry: dict) -> Classification:
         detail_parts.append(runtime)
     detail = " / ".join(detail_parts)
     return Classification(
-        client_type="agent",
+        client_type=client_type,
         confidence="high",
         detail=f"{detail} (catalogue)",
         signals=["catalogue_match"],

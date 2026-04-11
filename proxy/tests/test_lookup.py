@@ -28,6 +28,24 @@ SAMPLE_ENTRY = {
     "ja4":                 "t13d0000h2_aabbccddeeff_aabbccddeeff",
     "alpn_present":        False,
     "captured_at":         "2026-03-21T12:00:00Z",
+    # No client_type field — exercises the backward-compat default ("agent").
+}
+
+# Runtime-capture entries include an explicit client_type.
+SAMPLE_ENTRY_TOOL = {
+    **SAMPLE_ENTRY,
+    "ja4":        "t13d0001h2_aabbccddeeff_aabbccddeeff",
+    "runtime":    "curl",
+    "http_client": "curl",
+    "client_type": "tool",
+}
+
+SAMPLE_ENTRY_HEADLESS = {
+    **SAMPLE_ENTRY,
+    "ja4":        "t13d0002h2_aabbccddeeff_aabbccddeeff",
+    "runtime":    "chromium",
+    "http_client": "chromium",
+    "client_type": "headless",
 }
 
 
@@ -36,12 +54,31 @@ SAMPLE_ENTRY = {
 # ---------------------------------------------------------------------------
 
 class TestCatalogueAdapter:
-    def test_returns_agent_classification(self):
+    def test_defaults_to_agent_when_client_type_absent(self):
+        # Entries captured before client_type was added to the schema have no
+        # client_type field. They must still be classified as "agent" (backward compat).
         clf = _from_catalogue_entry(SAMPLE_ENTRY)
+        assert clf.client_type == "agent"
+
+    def test_reads_tool_client_type_from_entry(self):
+        clf = _from_catalogue_entry(SAMPLE_ENTRY_TOOL)
+        assert clf.client_type == "tool"
+
+    def test_reads_headless_client_type_from_entry(self):
+        clf = _from_catalogue_entry(SAMPLE_ENTRY_HEADLESS)
+        assert clf.client_type == "headless"
+
+    def test_reads_agent_client_type_from_entry(self):
+        entry = {**SAMPLE_ENTRY, "client_type": "agent"}
+        clf = _from_catalogue_entry(entry)
         assert clf.client_type == "agent"
 
     def test_confidence_is_high(self):
         clf = _from_catalogue_entry(SAMPLE_ENTRY)
+        assert clf.confidence == "high"
+
+    def test_confidence_is_high_for_tool_entry(self):
+        clf = _from_catalogue_entry(SAMPLE_ENTRY_TOOL)
         assert clf.confidence == "high"
 
     def test_signals_contains_catalogue_match(self):
@@ -140,3 +177,39 @@ class TestLocalCatalogue:
         assert clf.client_type == "agent"
         assert clf.confidence == "high"
         assert "catalogue_match" in clf.signals
+
+    def test_lookup_returns_tool_for_tool_entry(self, db, tmp_path):
+        """curl or Go net/http baseline entries must be routed as 'tool', not 'agent'."""
+        catalogue = tmp_path / "fingerprints.json"
+        _write_catalogue(catalogue, [SAMPLE_ENTRY_TOOL])
+
+        with patch("lookup.CATALOGUE_PATH", str(catalogue)):
+            db._load_local_catalogue()
+
+        clf = db.lookup(SAMPLE_ENTRY_TOOL["ja4"])
+        assert clf is not None
+        assert clf.client_type == "tool"
+
+    def test_lookup_returns_headless_for_browser_entry(self, db, tmp_path):
+        """Playwright/Chromium entries must be routed as 'headless', not 'agent'."""
+        catalogue = tmp_path / "fingerprints.json"
+        _write_catalogue(catalogue, [SAMPLE_ENTRY_HEADLESS])
+
+        with patch("lookup.CATALOGUE_PATH", str(catalogue)):
+            db._load_local_catalogue()
+
+        clf = db.lookup(SAMPLE_ENTRY_HEADLESS["ja4"])
+        assert clf is not None
+        assert clf.client_type == "headless"
+
+    def test_mixed_catalogue_routes_each_entry_correctly(self, db, tmp_path):
+        """With multiple client_type values in one catalogue, each must route correctly."""
+        catalogue = tmp_path / "fingerprints.json"
+        _write_catalogue(catalogue, [SAMPLE_ENTRY, SAMPLE_ENTRY_TOOL, SAMPLE_ENTRY_HEADLESS])
+
+        with patch("lookup.CATALOGUE_PATH", str(catalogue)):
+            db._load_local_catalogue()
+
+        assert db.lookup(SAMPLE_ENTRY["ja4"]).client_type == "agent"
+        assert db.lookup(SAMPLE_ENTRY_TOOL["ja4"]).client_type == "tool"
+        assert db.lookup(SAMPLE_ENTRY_HEADLESS["ja4"]).client_type == "headless"
