@@ -606,11 +606,16 @@ def _run_browser_chromium(url: str, venv_python: str) -> str:
     """
     Launch Chromium headless via Playwright, navigate to `url`, return the
     Chromium version string. Ignores TLS certificate errors (self-signed proxy).
+
+    --no-sandbox and --disable-dev-shm-usage are required on most Linux VPS
+    environments where Chromium runs under a non-root user without a full
+    desktop session or with restricted kernel security settings (no user
+    namespaces). Both flags are harmless on macOS.
     """
     script = (
         "from playwright.sync_api import sync_playwright\n"
         "with sync_playwright() as p:\n"
-        "    b = p.chromium.launch()\n"
+        "    b = p.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage'])\n"
         f"    page = b.new_page(ignore_https_errors=True)\n"
         f"    page.goto({url!r}, timeout=15000)\n"
         "    print(b.version)\n"
@@ -621,6 +626,13 @@ def _run_browser_chromium(url: str, venv_python: str) -> str:
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        sys.exit(
+            f"Chromium launch failed.\n"
+            f"On Linux, system dependencies may be missing. Try:\n"
+            f"  {venv_python} -m playwright install-deps chromium\n"
+            f"stderr: {result.stderr.strip()[-800:]}"
+        )
     return result.stdout.strip() or "unknown"
 
 # ── Runner — curl ───────────────────────────────────────────────────────────
