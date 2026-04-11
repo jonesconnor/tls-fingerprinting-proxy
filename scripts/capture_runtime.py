@@ -643,7 +643,9 @@ def _capture_curl(config: dict, linux: bool, platform_label: str) -> dict:
         os_label = "Linux"
     else:
         t = datetime.now(tz=timezone.utc)
-        subprocess.run(["curl", "-sk", "--max-time", "10", url], capture_output=True)
+        result = subprocess.run(["curl", "-sk", "--max-time", "10", url], capture_output=True)
+        if result.returncode != 0:
+            sys.exit(f"curl failed (exit {result.returncode}) — is the proxy running? Try: make up")
         version, tls_library = _get_curl_metadata_native()
         os_label = _os_label()
 
@@ -785,10 +787,9 @@ def _capture_go(config: dict, platform_label: str) -> dict:
             f.write(_GO_SOURCE.replace("{url}", url))
 
         t = datetime.now(tz=timezone.utc)
-        subprocess.run(
-            ["go", "run", src_path],
-            capture_output=True,
-        )
+        result = subprocess.run(["go", "run", src_path], capture_output=True)
+        if result.returncode != 0:
+            sys.exit(f"go run failed:\n{result.stderr.decode(errors='replace').strip()[-500:]}")
     finally:
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -836,11 +837,12 @@ def _capture_rust(config: dict, platform_label: str) -> dict:
 
         # Record T immediately before the network request fires.
         t = datetime.now(tz=timezone.utc)
-        subprocess.run(
+        result = subprocess.run(
             ["cargo", "run", "--manifest-path", os.path.join(tmp_dir, "Cargo.toml")],
-            capture_output=True,
-            cwd=tmp_dir,
+            capture_output=True, cwd=tmp_dir,
         )
+        if result.returncode != 0:
+            sys.exit(f"cargo run failed:\n{result.stderr.decode(errors='replace').strip()[-500:]}")
 
         fingerprint     = wait_for_fingerprint(t)
         runtime_version = _get_rustc_version()
