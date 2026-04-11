@@ -418,7 +418,7 @@ class TestOsLabel:
 
 class TestRuntimeConfigs:
     REQUIRED_KEYS = {
-        "runner", "runtime", "http_client", "description",
+        "runner", "runtime", "http_client", "client_type", "description",
         "linux_supported", "docker_image",
     }
     NODE_REQUIRED_KEYS = REQUIRED_KEYS | {"npm_package", "script"}
@@ -645,36 +645,43 @@ class TestSchemaCompatibility:
             runtime="curl", runtime_version="8.4.0",
             http_client="curl", http_client_version="8.4.0",
             tls_library="LibreSSL/3.3.6",
+            client_type="tool",
         ),
         "node-https": _make_entry(
             runtime="node", runtime_version="20.11.0",
             http_client="https", http_client_version="20.11.0",
             tls_library="OpenSSL/3.1.4",
+            client_type="tool",
         ),
         "node-fetch": _make_entry(
             runtime="node", runtime_version="20.11.0",
             http_client="fetch", http_client_version="20.11.0",
             tls_library="OpenSSL/3.1.4",
+            client_type="tool",
         ),
         "node-axios": _make_entry(
             runtime="node", runtime_version="20.11.0",
             http_client="axios", http_client_version="1.6.7",
             tls_library="OpenSSL/3.1.4",
+            client_type="tool",
         ),
         "go-net-http": _make_entry(
             runtime="go", runtime_version="1.22.0",
             http_client="net/http", http_client_version="1.22.0",
             tls_library="go crypto/tls 1.22.0",
+            client_type="tool",
         ),
         "rust-reqwest": _make_entry(
             runtime="rust", runtime_version="1.75.0",
             http_client="reqwest", http_client_version="0.12.3",
             tls_library="rustls",
+            client_type="tool",
         ),
         "chrome-playwright": _make_entry(
             runtime="chromium", runtime_version="120.0.6099.28",
             http_client="chromium", http_client_version="120.0.6099.28",
             tls_library="BoringSSL",
+            client_type="headless",
         ),
     }
 
@@ -706,3 +713,71 @@ class TestSchemaCompatibility:
     def test_browser_entry_tls_library_is_boringssl(self):
         entry = self.RUNTIME_ENTRIES["chrome-playwright"]
         assert entry["tls_library"] == "BoringSSL"
+
+
+# ── TestClientTypeField ───────────────────────────────────────────────────────
+#
+# Validates that the client_type field is present in RUNTIME_CONFIGS, that
+# each runtime declares the correct value, and that entries with client_type
+# pass the catalogue schema.
+
+class TestClientTypeField:
+    def test_all_runtime_configs_define_client_type(self):
+        """Every runtime must declare client_type — it drives proxy routing."""
+        for name, cfg in RUNTIME_CONFIGS.items():
+            assert "client_type" in cfg, (
+                f"{name!r} is missing 'client_type' in RUNTIME_CONFIGS"
+            )
+
+    def test_client_type_values_are_valid(self):
+        valid = {"agent", "tool", "headless", "browser", "unknown"}
+        for name, cfg in RUNTIME_CONFIGS.items():
+            assert cfg["client_type"] in valid, (
+                f"{name!r} has invalid client_type '{cfg['client_type']}'"
+            )
+
+    def test_curl_is_tool(self):
+        assert RUNTIME_CONFIGS["curl"]["client_type"] == "tool"
+
+    def test_node_runtimes_are_tool(self):
+        for name in ("node-https", "node-fetch", "node-axios"):
+            assert RUNTIME_CONFIGS[name]["client_type"] == "tool", (
+                f"{name!r} should be 'tool' (baseline Node.js TLS stack, not an AI agent)"
+            )
+
+    def test_go_is_tool(self):
+        assert RUNTIME_CONFIGS["go-net-http"]["client_type"] == "tool"
+
+    def test_rust_is_tool(self):
+        assert RUNTIME_CONFIGS["rust-reqwest"]["client_type"] == "tool"
+
+    def test_browser_is_headless(self):
+        assert RUNTIME_CONFIGS["chrome-playwright"]["client_type"] == "headless"
+
+    def test_entry_with_client_type_passes_schema(self):
+        """Schema must accept the client_type field (it was absent in the original schema)."""
+        schema = load_schema(SCHEMA_PATH)
+        entry = _make_entry(client_type="tool")
+        validate_entry(entry, schema)
+
+    def test_entry_with_headless_client_type_passes_schema(self):
+        schema = load_schema(SCHEMA_PATH)
+        entry = _make_entry(client_type="headless")
+        validate_entry(entry, schema)
+
+    def test_entry_with_invalid_client_type_fails_schema(self):
+        """Schema enum must reject unknown values — no silent misclassification."""
+        import jsonschema
+        schema = load_schema(SCHEMA_PATH)
+        entry = _make_entry(client_type="not-a-real-type")
+        with pytest.raises(jsonschema.ValidationError):
+            validate_entry(entry, schema)
+
+    def test_entry_without_client_type_still_passes_schema(self):
+        """
+        client_type is optional — entries captured before the field was added
+        must remain valid (backward compatibility).
+        """
+        schema = load_schema(SCHEMA_PATH)
+        entry = {k: v for k, v in _make_entry().items() if k != "client_type"}
+        validate_entry(entry, schema)  # must not raise

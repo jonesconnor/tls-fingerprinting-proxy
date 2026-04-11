@@ -172,6 +172,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "curl",
         "runtime":         "curl",
         "http_client":     "curl",
+        "client_type":     "tool",
         "description":     "curl command-line tool (libcurl)",
         "linux_supported": True,
         "docker_image":    "curlimages/curl",
@@ -180,6 +181,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "node",
         "runtime":         "node",
         "http_client":     "https",
+        "client_type":     "tool",
         "description":     "Node.js built-in https module",
         "npm_package":     None,
         "linux_supported": True,
@@ -199,6 +201,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "node",
         "runtime":         "node",
         "http_client":     "fetch",
+        "client_type":     "tool",
         "description":     "Node.js 18+ built-in fetch (Undici)",
         "npm_package":     None,
         "linux_supported": True,
@@ -217,6 +220,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "node",
         "runtime":         "node",
         "http_client":     "axios",
+        "client_type":     "tool",
         "description":     "Node.js with the axios HTTP client library",
         "npm_package":     "axios",
         "linux_supported": True,
@@ -238,6 +242,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "go",
         "runtime":         "go",
         "http_client":     "net/http",
+        "client_type":     "tool",
         "description":     "Go standard library net/http (pure Go crypto/tls — platform-independent)",
         "linux_supported": False,
         "docker_image":    None,
@@ -246,6 +251,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "rust",
         "runtime":         "rust",
         "http_client":     "reqwest",
+        "client_type":     "tool",
         "description":     "Rust reqwest crate with rustls backend (platform-independent)",
         "linux_supported": False,
         "docker_image":    None,
@@ -254,6 +260,7 @@ RUNTIME_CONFIGS: dict[str, dict] = {
         "runner":          "browser",
         "runtime":         "chromium",
         "http_client":     "chromium",
+        "client_type":     "headless",
         "description":     "Chrome headless via Playwright (BoringSSL — matches real Chrome)",
         "linux_supported": False,
         "docker_image":    None,
@@ -654,6 +661,7 @@ def _capture_curl(config: dict, linux: bool, platform_label: str) -> dict:
         "ja4":                 ja4,
         "alpn_present":        alpn_present,
         "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "client_type":         config["client_type"],
     }
 
 # ── Runner — Node.js ─────────────────────────────────────────────────────────
@@ -704,6 +712,7 @@ def _capture_node(config: dict, linux: bool, platform_label: str) -> dict:
         "ja4":                 ja4,
         "alpn_present":        alpn_present,
         "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "client_type":         config["client_type"],
     }
 
 
@@ -800,6 +809,7 @@ def _capture_go(config: dict, platform_label: str) -> dict:
         "ja4":                 ja4,
         "alpn_present":        alpn_present,
         "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "client_type":         config["client_type"],
     }
 
 # ── Runner — Rust ────────────────────────────────────────────────────────────
@@ -853,6 +863,7 @@ def _capture_rust(config: dict, platform_label: str) -> dict:
         "ja4":                 ja4,
         "alpn_present":        alpn_present,
         "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "client_type":         config["client_type"],
     }
 
 
@@ -889,6 +900,7 @@ def _capture_browser(config: dict, platform_label: str) -> dict:
         "ja4":                 ja4,
         "alpn_present":        alpn_present,
         "captured_at":         t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "client_type":         config["client_type"],
     }
 
 # ── Main capture flow ────────────────────────────────────────────────────────

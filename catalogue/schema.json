@@ -22,7 +22,12 @@
     "tls_library":         { "type": "string", "minLength": 1 },
     "ja4":                 { "type": "string", "minLength": 1 },
     "alpn_present":        { "type": "boolean" },
-    "captured_at":         { "type": "string", "minLength": 1 }
+    "captured_at":         { "type": "string", "minLength": 1 },
+    "client_type": {
+      "type": "string",
+      "enum": ["agent", "tool", "headless", "browser", "unknown"],
+      "description": "How the proxy should classify and route this client. Optional for backward compatibility — lookup.py defaults to 'agent' when absent."
+    }
   },
   "additionalProperties": false
 }
