@@ -356,7 +356,7 @@ async def handle_connection(
         ch = parse_client_hello(peek_data)
         ja4 = "parse_error" if ch.parse_error else compute_ja4(ch)
         raw = {} if ch.parse_error else compute_ja4_raw(ch)
-        clf = db.lookup(ja4) or classify(ja4, ch)
+        clf = db.lookup(ja4) or db.lookup_nearest(ja4) or classify(ja4, ch)
 
         if clf.client_type == "unknown":
             log.warning(f"{client_ip}: unknown fingerprint {ja4} — not in ja4db or catalogue")
