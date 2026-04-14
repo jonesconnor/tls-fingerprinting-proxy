@@ -17,6 +17,7 @@ FULL_HEADERS = {
     "X-Client-Detail": "Python/urllib (macOS LibreSSL)",
     "X-Client-Confidence": "high",
     "X-Client-Signals": "alpn,cipher_order",
+    "X-Client-Match-Type": "exact",
 }
 
 
@@ -62,6 +63,10 @@ class TestIndex:
         r = client.get("/", headers=FULL_HEADERS)
         assert isinstance(r.json()["fingerprint"]["signals"], list)
 
+    def test_fingerprint_match_type_from_header(self):
+        r = client.get("/", headers=FULL_HEADERS)
+        assert r.json()["fingerprint"]["match_type"] == "exact"
+
     def test_fingerprint_no_headers_returns_nulls(self):
         r = client.get("/")
         fp = r.json()["fingerprint"]
@@ -70,6 +75,7 @@ class TestIndex:
         assert fp["detail"] is None
         assert fp["confidence"] is None
         assert fp["signals"] is None
+        assert fp["match_type"] is None
         assert "note" in fp
 
     def test_fingerprint_partial_headers(self):
@@ -95,12 +101,17 @@ class TestFingerprint:
         assert fp["confidence"] == "high"
         assert fp["signals"] == ["alpn", "cipher_order"]
 
+    def test_match_type_from_header(self):
+        r = client.get("/fingerprint", headers=FULL_HEADERS)
+        assert r.json()["match_type"] == "exact"
+
     def test_no_headers_returns_nulls_with_note(self):
         r = client.get("/fingerprint")
         fp = r.json()
         assert fp["ja4"] is None
         assert fp["client_type"] is None
         assert fp["signals"] is None
+        assert fp["match_type"] is None
         assert "note" in fp
 
     def test_partial_headers(self):

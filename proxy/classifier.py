@@ -28,6 +28,7 @@ class Classification:
     confidence: str         # high | medium | low
     detail: str             # human-readable description
     signals: list[str] = field(default_factory=list)
+    match_type: str = "heuristic"  # exact | near | heuristic
 
     def to_dict(self) -> dict:
         return {
@@ -35,6 +36,7 @@ class Classification:
             "confidence": self.confidence,
             "detail": self.detail,
             "signals": self.signals,
+            "match_type": self.match_type,
         }
 
 
