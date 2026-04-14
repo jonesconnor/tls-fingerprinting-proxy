@@ -109,6 +109,7 @@ def _inject_headers(raw_request: bytes, ja4: str, clf) -> bytes:
         f"\r\nX-Client-Detail: {clf.detail}"
         f"\r\nX-Client-Confidence: {clf.confidence}"
         f"\r\nX-Client-Signals: {','.join(clf.signals)}"
+        f"\r\nX-Client-Match-Type: {clf.match_type}"
     ).encode()
 
     if idx == -1:

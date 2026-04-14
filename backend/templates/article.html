@@ -184,6 +184,18 @@
       font-size: 0.67rem;
     }
 
+    .match-pill {
+      padding: 0.15rem 0.45rem;
+      border-radius: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .match-pill-exact     { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.25); }
+    .match-pill-near      { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
+    .match-pill-heuristic { background: var(--gray-dim);  color: var(--muted); border: 1px solid var(--border); }
+
     /* ── Layout ───────────────────────────────────────────────────────── */
     .container {
       max-width: 720px;
@@ -393,6 +405,9 @@
   <div class="classification-bar">
     <span class="detected-label">Detected as</span>
     <span class="badge badge-{{ classification.client_type }}">&#9679; {{ classification.client_type }}</span>
+    {% if classification.match_type %}
+    <span class="match-pill match-pill-{{ classification.match_type }}">{{ classification.match_type }}</span>
+    {% endif %}
     {% if classification.ja4 %}
     <span class="ja4-pill">JA4:&nbsp;<span class="ja4-hash">{{ classification.ja4 }}</span></span>
     {% endif %}
@@ -420,7 +435,7 @@
         const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
         this.textContent = next === 'dark' ? 'light' : 'dark';
-      ">light</button>
+      ">dark</button>
     </div>
   </nav>
 
@@ -478,6 +493,10 @@
             <div class="debug-row">
               <span class="debug-key">signals</span>
               <span class="debug-val">{{ classification.signals | join(', ') or '—' }}</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-key">match_type</span>
+              <span class="debug-val">{{ classification.match_type or '—' }}</span>
             </div>
           </div>
         </div>
