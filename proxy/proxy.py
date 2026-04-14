@@ -109,6 +109,7 @@ def _inject_headers(raw_request: bytes, ja4: str, clf) -> bytes:
         f"\r\nX-Client-Detail: {clf.detail}"
         f"\r\nX-Client-Confidence: {clf.confidence}"
         f"\r\nX-Client-Signals: {','.join(clf.signals)}"
+        f"\r\nX-Client-Match-Type: {clf.match_type}"
     ).encode()
 
     if idx == -1:
@@ -356,7 +357,7 @@ async def handle_connection(
         ch = parse_client_hello(peek_data)
         ja4 = "parse_error" if ch.parse_error else compute_ja4(ch)
         raw = {} if ch.parse_error else compute_ja4_raw(ch)
-        clf = db.lookup(ja4) or classify(ja4, ch)
+        clf = db.lookup(ja4) or db.lookup_nearest(ja4) or classify(ja4, ch)
 
         if clf.client_type == "unknown":
             log.warning(f"{client_ip}: unknown fingerprint {ja4} — not in ja4db or catalogue")

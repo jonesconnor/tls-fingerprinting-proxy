@@ -468,6 +468,7 @@ def _get_classification() -> tuple[dict, bool]:
         "detail":      request.headers.get("X-Client-Detail", ""),
         "confidence":  request.headers.get("X-Client-Confidence", "low"),
         "signals":     [s for s in request.headers.get("X-Client-Signals", "").split(",") if s],
+        "match_type":  request.headers.get("X-Client-Match-Type", "heuristic"),
     }
     accept     = request.headers.get("Accept", "")
     wants_html = client_type == "browser" or "text/html" in accept

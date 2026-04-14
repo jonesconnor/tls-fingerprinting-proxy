@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.7.6] - 2026-04-13
+## [2.7.7] - 2026-04-13
 
 ### Added
 - `/compare` route in `backend/app.py`: fingerprint breakdown page showing how the visitor's TLS profile compares against six reference clients (Chrome/Edge, Firefox, Safari, Python/OpenSSL, Go net/http, curl) across cipher count, extension count, ALPN, GREASE, ECH, and compress_cert
@@ -13,6 +13,19 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - `/compare` on the agent service returns an explanatory note directing machine clients to the browser-only visual page
+
+## [2.7.6] - 2026-04-12
+
+### Added
+- `lookup.py`: `Ja4Database.lookup_nearest()` — part-based near-match scoring against the local catalogue. Part A (TLS version/counts/ALPN) is a prerequisite; Part B (cipher hash) contributes 60 points and Part C (extension/sig-alg hash) contributes 40 points. A+B match (score 60) returns `"Likely <sdk> on <runtime> / <os>, 60% match"` with `confidence="medium"`. Candidates that only share Part A (score 0) fall through to heuristics. ja4db entries are excluded — they lack the SDK-level metadata needed for a meaningful near-match label.
+- `classifier.py`: `match_type` field on `Classification` (`"exact"` | `"near"` | `"heuristic"`) included in `to_dict()`. All existing code paths default to `"heuristic"`.
+- `proxy/tests/test_lookup.py`: 26 new tests across `TestDetailString`, `TestNearMatchClassification`, and `TestLookupNearest`.
+
+### Changed
+- `lookup.py`: exact-match detail string now includes the full platform context: `"openai 1.65.4 on python 3.11.x / macOS 15 (catalogue)"` instead of the previous `"openai 1.65.4 / python (catalogue)"`.
+- `proxy.py`: lookup chain extended to `db.lookup(ja4) → db.lookup_nearest(ja4) → classify(ja4, ch)`.
+
+## [2.7.5] - 2026-04-06
 
 ### Fixed
 - `proxy.py`: set a 10-second socket timeout before `ssl_ctx.wrap_socket()` so scanner/prober connections that hang mid-handshake release their executor thread instead of occupying it indefinitely — previously caused thread pool exhaustion and full proxy unresponsiveness under scan traffic bursts

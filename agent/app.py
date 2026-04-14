@@ -62,6 +62,7 @@ def _parse_fingerprint_headers(request: Request) -> dict:
     detail = request.headers.get("X-Client-Detail")
     confidence = request.headers.get("X-Client-Confidence")
     raw_signals = request.headers.get("X-Client-Signals")
+    match_type = request.headers.get("X-Client-Match-Type")
 
     if ja4 is None:
         return {
@@ -70,6 +71,7 @@ def _parse_fingerprint_headers(request: Request) -> dict:
             "detail": None,
             "confidence": None,
             "signals": None,
+            "match_type": None,
             "note": "request did not pass through proxy",
         }
 
@@ -81,6 +83,7 @@ def _parse_fingerprint_headers(request: Request) -> dict:
         "detail": detail,
         "confidence": confidence,
         "signals": signals,
+        "match_type": match_type,
     }
 
 
