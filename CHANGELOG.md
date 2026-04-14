@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.7] - 2026-04-13
+
+### Added
+- `/compare` route in `backend/app.py`: fingerprint breakdown page showing how the visitor's TLS profile compares against six reference clients (Chrome/Edge, Firefox, Safari, Python/OpenSSL, Go net/http, curl) across cipher count, extension count, ALPN, GREASE, ECH, and compress_cert
+- `backend/templates/compare.html`: full design-system page with JA4 Part A decoded breakdown, comparison table (visitor row highlighted in amber, matching cells highlighted in green), and signal explanation section
+- `backend/app.py`: `_parse_ja4_part_a()` helper decoding the human-readable JA4 Part A fields (transport, TLS version, SNI, cipher count, extension count, ALPN); `REFERENCE_PROFILES` and `_SIGNAL_LABELS` constants
+- `/compare` nav link added to `index.html` and `article.html`
+- `agent/app.py`: `/compare` endpoint returning JSON fingerprint data for non-browser clients (curl and other tool clients are routed to the agent service and previously received 404)
+
+### Changed
+- `/compare` on the agent service returns an explanatory note directing machine clients to the browser-only visual page
+
 ## [2.7.6] - 2026-04-12
 
 ### Added

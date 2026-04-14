@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fingerprint Comparison — Connor Jones</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root[data-theme="dark"] {
+      --bg:          #0c0c0f;
+      --surface:     #161619;
+      --surface-2:   #1d1d22;
+      --border:      #252530;
+      --text:        #e8e8ec;
+      --muted:       #8888a0;
+      --accent:      #e8a020;
+      --accent-dim:  #3d2a00;
+      --accent-glow: rgba(232, 160, 32, 0.10);
+      --green:       #4ade80;
+      --green-dim:   rgba(74, 222, 128, 0.12);
+      --amber:       #e8a020;
+      --amber-dim:   rgba(232, 160, 32, 0.12);
+      --red:         #f87171;
+      --red-dim:     rgba(248, 113, 113, 0.12);
+      --gray-dim:    rgba(136, 136, 160, 0.12);
+      --code-bg:     #101014;
+    }
+
+    :root[data-theme="light"] {
+      --bg:          #f8f7f4;
+      --surface:     #ffffff;
+      --surface-2:   #f0efe9;
+      --border:      #e0ddd4;
+      --text:        #1a1a20;
+      --muted:       #888899;
+      --accent:      #c47b00;
+      --accent-dim:  #fef3cd;
+      --accent-glow: rgba(196, 123, 0, 0.08);
+      --green:       #16a34a;
+      --green-dim:   rgba(22, 163, 74, 0.10);
+      --amber:       #c47b00;
+      --amber-dim:   rgba(196, 123, 0, 0.10);
+      --red:         #dc2626;
+      --red-dim:     rgba(220, 38, 38, 0.10);
+      --gray-dim:    rgba(100, 100, 120, 0.10);
+      --code-bg:     #f3f2ee;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Instrument Sans', -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    /* ── Nav ──────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 52px;
+      background: rgba(12, 12, 15, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    [data-theme="light"] nav {
+      background: rgba(248, 247, 244, 0.92);
+    }
+
+    .nav-brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-decoration: none;
+    }
+
+    .nav-brand span { color: var(--accent); }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-family: 'Instrument Sans', sans-serif;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.active { color: var(--accent); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      padding: 0.28rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── Classification banner ────────────────────────────────────────── */
+    .classification-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      animation: fadein 200ms ease-out;
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .detected-label {
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.65rem;
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .badge-browser  { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.25); }
+    .badge-agent    { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
+    .badge-tool     { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
+    .badge-headless { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(248, 113, 113, 0.25); }
+    .badge-unknown  { background: var(--gray-dim);  color: var(--muted); border: 1px solid var(--border); }
+
+    .ja4-pill { color: var(--muted); font-size: 0.72rem; }
+    .ja4-hash { color: var(--accent); }
+
+    .signal-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+
+    .chip {
+      padding: 0.15rem 0.4rem;
+      border-radius: 2px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+    }
+
+    /* ── Page layout ──────────────────────────────────────────────────── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* ── Page header ──────────────────────────────────────────────────── */
+    .page-header {
+      padding: 3.5rem 0 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .page-title {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .page-subtitle {
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 600px;
+    }
+
+    /* ── Section cards ────────────────────────────────────────────────── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-label {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── JA4 string display ───────────────────────────────────────────── */
+    .ja4-string-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(0.75rem, 2vw, 0.95rem);
+      word-break: break-all;
+      padding: 1rem 1.25rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 1.75rem;
+      line-height: 1.5;
+    }
+
+    .ja4-part-a-str { color: var(--accent); }
+    .ja4-sep-str    { color: var(--border); padding: 0 0.1em; }
+    .ja4-part-b-str { color: var(--text); opacity: 0.65; }
+    .ja4-part-c-str { color: var(--text); opacity: 0.4; }
+
+    /* ── Part A segment boxes ─────────────────────────────────────────── */
+    .part-a-segments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .seg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.6rem 0.85rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .seg-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 0.35rem;
+    }
+
+    .seg-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    .seg-divider {
+      display: flex;
+      align-items: center;
+      padding: 0 0.15rem;
+      color: var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.2rem;
+      align-self: center;
+    }
+
+    .seg-hash {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .seg-hash .seg-value {
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      word-break: break-all;
+    }
+
+    /* ── Comparison table ─────────────────────────────────────────────── */
+    .compare-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 4px;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      min-width: 620px;
+    }
+
+    .compare-table th {
+      text-align: left;
+      padding: 0.55rem 1rem;
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: var(--code-bg);
+    }
+
+    .compare-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .compare-table tr:last-child td { border-bottom: none; }
+
+    .row-you td {
+      background: var(--accent-glow);
+    }
+
+    .row-you td:first-child {
+      border-left: 2px solid var(--accent);
+    }
+
+    .client-name {
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .client-lib {
+      display: block;
+      font-size: 0.62rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    .cell-match { color: var(--green); }
+    .cell-na    { color: var(--muted); opacity: 0.5; }
+
+    .check { color: var(--green); }
+    .dash  { color: var(--border); }
+
+    /* ── Signal explanation cards ─────────────────────────────────────── */
+    .signal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .signal-card {
+      padding: 1rem 1.25rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    .signal-card-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+    }
+
+    .signal-card-body {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .signal-verdict {
+      display: inline-block;
+      margin-top: 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      padding: 0.12rem 0.45rem;
+      border-radius: 2px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      letter-spacing: 0.03em;
+    }
+
+    /* ── No-fingerprint callout ───────────────────────────────────────── */
+    .no-fingerprint {
+      padding: 2rem 1.75rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .no-fingerprint p {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .no-fingerprint code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 0 2.5rem;
+      margin-top: 3rem;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { opacity: 0.75; }
+
+    /* ── Responsive ───────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .classification-bar { padding: 1rem 1.25rem; gap: 0.75rem; }
+      nav { padding: 0 1.25rem; }
+      .container { padding: 0 1.25rem; }
+      .section-card { padding: 1.25rem; }
+      .part-a-segments { gap: 0.35rem; }
+      .seg { padding: 0.5rem 0.6rem; min-width: 50px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Classification banner -->
+  <div class="classification-bar">
+    <span class="detected-label">Detected as</span>
+    <span class="badge badge-{{ classification.client_type }}">&#9679; {{ classification.client_type }}</span>
+    {% if classification.ja4 %}
+    <span class="ja4-pill">JA4:&nbsp;<span class="ja4-hash">{{ classification.ja4 }}</span></span>
+    {% endif %}
+    {% if classification.detail %}
+    <span style="color: var(--muted); font-size: 0.72rem;">{{ classification.detail }}</span>
+    {% endif %}
+    {% if classification.signals %}
+    <div class="signal-chips">
+      {% for sig in classification.signals %}
+      <span class="chip">{{ sig }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <nav>
+    <a href="/" class="nav-brand">connor<span>jones</span>.ca</a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/writing/tls-fingerprinting">Article</a></li>
+        <li><a href="/compare" class="active">/compare</a></li>
+        <li><a href="/debug">/debug</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="
+        const html = document.documentElement;
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        this.textContent = next === 'dark' ? 'light' : 'dark';
+      ">dark</button>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <div class="page-header">
+      <h1 class="page-title">Your TLS Fingerprint</h1>
+      <p class="page-subtitle">Before you sent a single HTTP byte, this server identified your client from your TLS handshake. Here's what that fingerprint looks like — and how it compares to other clients.</p>
+    </div>
+
+    <!-- ── Section 1: JA4 Breakdown ──────────────────────────────────── -->
+    <div class="section-card">
+      <div class="section-label">JA4 Breakdown</div>
+
+      {% if ja4_parsed %}
+
+      <!-- Full string -->
+      <div class="ja4-string-display">
+        <span class="ja4-part-a-str">{{ ja4_parsed.raw }}</span><span class="ja4-sep-str">_</span><span class="ja4-part-b-str">{{ ja4_parsed.part_b }}</span><span class="ja4-sep-str">_</span><span class="ja4-part-c-str">{{ ja4_parsed.part_c }}</span>
+      </div>
+
+      <!-- Part A segment boxes -->
+      <div class="part-a-segments">
+        <div class="seg">
+          <span class="seg-value">{{ ja4_parsed.transport[0] | lower }}</span>
+          <span class="seg-label">{{ ja4_parsed.transport }}</span>
+        </div>
+        <div class="seg">
+          <span class="seg-value">{{ ja4_parsed.raw[1:3] }}</span>
+          <span class="seg-label">TLS {{ ja4_parsed.tls_version }}</span>
+        </div>
+        <div class="seg">
+          <span class="seg-value">{{ ja4_parsed.raw[3] }}</span>
+          <span class="seg-label">SNI<br>{{ ja4_parsed.sni }}</span>
+        </div>
+        <div class="seg">
+          <span class="seg-value">{{ ja4_parsed.cipher_count }}</span>
+          <span class="seg-label">cipher<br>suites</span>
+        </div>
+        <div class="seg">
+          <span class="seg-value">{{ ja4_parsed.ext_count }}</span>
+          <span class="seg-label">TLS<br>extensions</span>
+        </div>
+        <div class="seg">
+          <span class="seg-value">{{ ja4_parsed.raw[8:10] }}</span>
+          <span class="seg-label">ALPN<br>{{ ja4_parsed.alpn }}</span>
+        </div>
+
+        <div class="seg-divider">_</div>
+
+        <div class="seg seg-hash">
+          <span class="seg-value">{{ ja4_parsed.part_b }}</span>
+          <span class="seg-label">cipher hash — SHA-256 of sorted cipher suite list</span>
+        </div>
+
+        <div class="seg-divider">_</div>
+
+        <div class="seg seg-hash">
+          <span class="seg-value">{{ ja4_parsed.part_c }}</span>
+          <span class="seg-label">extension hash — SHA-256 of extension types + sig-alg list</span>
+        </div>
+      </div>
+
+      <p style="font-family: 'Instrument Sans', sans-serif; font-size: 0.82rem; color: var(--muted); line-height: 1.6;">
+        Part A encodes handshake parameters in plain text — cipher count, extension count, ALPN, and TLS version are all visible without decoding. Parts B and C are truncated SHA-256 hashes: Part B captures <em>which</em> cipher suites you offered (order-independent), Part C captures which extensions and signature algorithms. Two clients with the same Part A but different Part B are running different TLS libraries. Same Part B but different Part C usually means the same library on a different OS or version.
+      </p>
+
+      {% else %}
+
+      <div class="no-fingerprint">
+        <p>No fingerprint available. This page is most useful when accessed through the TLS fingerprinting proxy — the proxy reads your <code>ClientHello</code> before the TLS handshake completes and injects the result as HTTP headers. If you're seeing this, the request didn't pass through the proxy.</p>
+      </div>
+
+      {% endif %}
+    </div>
+
+    <!-- ── Section 2: Comparison Table ───────────────────────────────── -->
+    <div class="section-card">
+      <div class="section-label">How Your Client Compares</div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Ciphers</th>
+              <th>Extensions</th>
+              <th>ALPN</th>
+              <th>GREASE</th>
+              <th>ECH</th>
+              <th>Compress cert</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- You row -->
+            <tr class="row-you">
+              <td>
+                <span class="client-name">You</span>
+                {% if classification.detail %}
+                <span class="client-lib">{{ classification.detail }}</span>
+                {% endif %}
+              </td>
+              {% if you %}
+              <td>{{ you.cipher_count }}</td>
+              <td>{{ you.ext_count }}</td>
+              <td>{{ you.alpn }}</td>
+              <td>{% if you.grease %}<span class="check">✓</span>{% else %}<span class="dash">—</span>{% endif %}</td>
+              <td>{% if you.ech %}<span class="check">✓</span>{% else %}<span class="dash">—</span>{% endif %}</td>
+              <td>{% if you.compress_cert %}<span class="check">✓</span>{% else %}<span class="dash">—</span>{% endif %}</td>
+              {% else %}
+              <td colspan="6" class="cell-na">fingerprint unavailable</td>
+              {% endif %}
+            </tr>
+
+            <!-- Reference rows -->
+            {% for ref in references %}
+            <tr>
+              <td>
+                <span class="client-name">{{ ref.name }}</span>
+                <span class="client-lib">{{ ref.tls_lib }}</span>
+              </td>
+              <td class="{{ 'cell-match' if you and ref.cipher_count == you.cipher_count }}">
+                {{ ref.cipher_count }}{% if ref.name == "Python / OpenSSL" %}+{% endif %}
+              </td>
+              <td class="{{ 'cell-match' if you and ref.ext_count == you.ext_count }}">
+                {{ ref.ext_count }}
+              </td>
+              <td class="{{ 'cell-match' if you and ref.alpn == you.alpn }}">
+                {{ ref.alpn }}
+              </td>
+              <td class="{{ 'cell-match' if you and ref.grease == you.grease }}">
+                {% if ref.grease %}<span class="check">✓</span>{% else %}<span class="dash">—</span>{% endif %}
+              </td>
+              <td class="{{ 'cell-match' if you and ref.ech == you.ech }}">
+                {% if ref.ech %}<span class="check">✓</span>{% else %}<span class="dash">—</span>{% endif %}
+              </td>
+              <td class="{{ 'cell-match' if you and ref.compress_cert == you.compress_cert }}">
+                {% if ref.compress_cert %}<span class="check">✓</span>{% else %}<span class="dash">—</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+
+          </tbody>
+        </table>
+      </div>
+
+      {% if you %}
+      <p style="margin-top: 1.25rem; font-family: 'Instrument Sans', sans-serif; font-size: 0.8rem; color: var(--muted);">
+        <span style="color: var(--green);">Green cells</span> indicate a value matching yours. The combination of cipher count, extension count, ALPN, and the three boolean signals is what makes JA4 classification reliable — each browser or runtime leaves a distinct pattern across all six dimensions.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- ── Section 3: Signal Explanations ────────────────────────────── -->
+    {% if signal_explanations %}
+    <div class="section-card">
+      <div class="section-label">What Your Signals Mean</div>
+      <div class="signal-list">
+        {% for s in signal_explanations %}
+        <div class="signal-card">
+          <div class="signal-card-title">{{ s.title }}</div>
+          <div class="signal-card-body">{{ s.body }}</div>
+          <span class="signal-verdict">{{ s.verdict }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <footer>
+      <p>This page is served by a TLS fingerprinting proxy. Every request is classified by its <a href="https://github.com/FoxIO-LLC/ja4" target="_blank" rel="noopener">JA4</a> fingerprint before HTTP begins. Read the <a href="/writing/tls-fingerprinting">article</a> or inspect the raw headers at <a href="/debug">/debug</a>.</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>
