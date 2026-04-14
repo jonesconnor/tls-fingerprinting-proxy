@@ -9,6 +9,7 @@ Routes
 ------
   GET /             structured JSON response for machine consumption
   GET /fingerprint  TLS fingerprint profile for any caller
+  GET /compare      JSON fingerprint data (browser clients get the visual HTML page)
   GET /catalogue    serve ai-sdk-fingerprints.json as a JSON array
   GET /health       health check
 """
@@ -103,6 +104,26 @@ def index(request: Request):
 @app.get("/fingerprint")
 def fingerprint(request: Request):
     return JSONResponse(content=_parse_fingerprint_headers(request))
+
+
+@app.get("/compare")
+def compare(request: Request):
+    """
+    Machine-readable version of the /compare fingerprint breakdown page.
+    The visual HTML page is served to browsers; non-browser clients receive
+    this JSON response with the same underlying data.
+    """
+    return JSONResponse(
+        content={
+            "note": (
+                "/compare is a visual fingerprint breakdown page served to browsers. "
+                "You are receiving JSON because your client was identified as a non-browser. "
+                "Your fingerprint data is below. Visit /compare from a browser for the "
+                "interactive version."
+            ),
+            "fingerprint": _parse_fingerprint_headers(request),
+        },
+    )
 
 
 @app.get("/catalogue")
