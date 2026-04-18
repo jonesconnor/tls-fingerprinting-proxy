@@ -14,11 +14,14 @@ Routes
 
 import json
 import os
+import sqlite3
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
+
+TRAFFIC_DB_PATH = os.getenv("TRAFFIC_DB_PATH", "")
 
 # ---------------------------------------------------------------------------
 # Article content — the demo payload.
@@ -565,6 +568,100 @@ def compare():
         you=you,
         references=REFERENCE_PROFILES,
         signal_explanations=signal_explanations,
+    )
+
+
+def _query_traffic_stats() -> dict:
+    """
+    Run all /stats queries against the traffic SQLite DB.
+    Returns empty defaults if the DB is unavailable.
+    """
+    empty = {
+        "recent": [],
+        "top_ja4": [],
+        "gap_candidates": [],
+        "chart_labels": [f"{h:02d}:00" for h in range(24)],
+        "chart_datasets": {},
+        "db_available": False,
+    }
+    if not TRAFFIC_DB_PATH:
+        return empty
+
+    try:
+        conn = sqlite3.connect(f"file:{TRAFFIC_DB_PATH}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+    except Exception:
+        return empty
+
+    try:
+        recent = [
+            dict(r) for r in conn.execute(
+                "SELECT ts, ja4, path, client_type, detail, match_type"
+                " FROM traffic_log ORDER BY id DESC LIMIT 50"
+            )
+        ]
+
+        top_ja4 = [
+            dict(r) for r in conn.execute(
+                "SELECT ja4, client_type, detail, COUNT(*) as cnt"
+                " FROM traffic_log"
+                " WHERE ts >= datetime('now', '-24 hours')"
+                " GROUP BY ja4 ORDER BY cnt DESC LIMIT 5"
+            )
+        ]
+
+        gap_candidates = [
+            dict(r) for r in conn.execute(
+                "SELECT ja4, detail, COUNT(*) as cnt, MAX(ts) as last_seen"
+                " FROM traffic_log"
+                " WHERE match_type = 'heuristic'"
+                " GROUP BY ja4 HAVING cnt >= 3"
+                " ORDER BY cnt DESC"
+            )
+        ]
+
+        hourly_rows = conn.execute(
+            "SELECT strftime('%H', ts) as hour, client_type, COUNT(*) as cnt"
+            " FROM traffic_log"
+            " WHERE ts >= datetime('now', '-24 hours')"
+            " GROUP BY hour, client_type ORDER BY hour"
+        ).fetchall()
+
+        client_types = ["browser", "agent", "tool", "headless", "unknown"]
+        datasets: dict[str, list[int]] = {ct: [0] * 24 for ct in client_types}
+        for row in hourly_rows:
+            h = int(row["hour"])
+            ct = row["client_type"]
+            if ct in datasets:
+                datasets[ct][h] = row["cnt"]
+
+        return {
+            "recent": recent,
+            "top_ja4": top_ja4,
+            "gap_candidates": gap_candidates,
+            "chart_labels": [f"{h:02d}:00" for h in range(24)],
+            "chart_datasets": datasets,
+            "db_available": True,
+        }
+    except Exception:
+        return empty
+    finally:
+        conn.close()
+
+
+@app.route("/stats")
+def stats():
+    """Traffic dashboard — last 50 requests, hourly breakdown, catalogue gaps."""
+    classification, _ = _get_classification()
+    data = _query_traffic_stats()
+    return render_template(
+        "stats.html",
+        classification=classification,
+        chart_data_json=json.dumps({
+            "labels": data["chart_labels"],
+            "datasets": data["chart_datasets"],
+        }),
+        **data,
     )
 
 

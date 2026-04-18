@@ -8,6 +8,7 @@ services:
       - ./certs:/certs:ro
       - fingerprint-logs:/data/fingerprints
       - ./catalogue:/data/catalogue:ro
+      - traffic-db:/data/traffic
     environment:
       CATALOGUE_PATH: "/data/catalogue/ai-sdk-fingerprints.json"
       LISTEN_HOST: "0.0.0.0"
@@ -20,6 +21,7 @@ services:
       KEY_FILE: "/certs/proxy.key"
       LOG_DIR: "/data/fingerprints"
       LOG_RETENTION_DAYS: "30"
+      TRAFFIC_DB_PATH: "/data/traffic/traffic.db"
     depends_on:
       backend:
         condition: service_started
@@ -33,8 +35,11 @@ services:
     build: ./backend
     expose:
       - "8080"
+    volumes:
+      - traffic-db:/data/traffic:ro
     environment:
       BACKEND_PORT: "8080"
+      TRAFFIC_DB_PATH: "/data/traffic/traffic.db"
     networks:
       - internal
     restart: unless-stopped
@@ -45,9 +50,11 @@ services:
       - "8001"
     volumes:
       - ./catalogue:/data/catalogue:ro
+      - traffic-db:/data/traffic:ro
     environment:
       AGENT_PORT: "8001"
       CATALOGUE_PATH: "/data/catalogue/ai-sdk-fingerprints.json"
+      TRAFFIC_DB_PATH: "/data/traffic/traffic.db"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 10s
@@ -63,3 +70,4 @@ networks:
 
 volumes:
   fingerprint-logs:
+  traffic-db:
