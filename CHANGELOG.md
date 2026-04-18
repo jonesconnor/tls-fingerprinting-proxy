@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.10] - 2026-04-18
+
+### Changed
+- `backend/templates/index.html`: rewrote homepage content — updated hero description to lead with role ("Infrastructure tech lead at Bell Canada — the systems person on a software team") followed by revised tagline; split the former About paragraph into separate Now and About sections; Now section covers the TLS proxy project and job availability; About section rewritten with "since 2023" instead of relative time, ownership of architecture work ("led the architecture" not "assisted"), generalised compute platform references to "private cloud and Kubernetes environments", and explicit tech lead / non-people-manager distinction
+
 ## [2.7.9] - 2026-04-17
 
 ### Changed
