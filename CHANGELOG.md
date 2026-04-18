@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.9] - 2026-04-17
+
+### Changed
+- Removed "Article" nav link from all pages (`index.html`, `compare.html`, `stats.html`) — the label was inconsistent with the slash-prefixed style of the other nav items
+- Updated README to document all browser and agent service endpoints (`/compare`, `/stats`, `/debug`, `/health`)
+
 ## [2.7.8] - 2026-04-17
 
 ### Added
