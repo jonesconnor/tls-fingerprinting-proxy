@@ -34,6 +34,7 @@ from ja4 import compute_ja4, compute_ja4_raw
 from logger import FingerprintLogger
 from lookup import Ja4Database
 from tls_parser import parse_client_hello  # scapy-backed
+from traffic_logger import TrafficLogger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +84,17 @@ def _build_ssl_context() -> ssl.SSLContext:
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
+
+def _parse_request_path(raw: bytes) -> str:
+    try:
+        line = raw.split(b"\r\n", 1)[0]
+        parts = line.split(b" ")
+        if len(parts) >= 2:
+            return parts[1].decode("ascii", errors="replace")
+    except Exception:
+        pass
+    return "/"
+
 
 def _inject_headers(raw_request: bytes, ja4: str, clf) -> bytes:
     """
@@ -329,6 +341,7 @@ async def handle_connection(
     loop: asyncio.AbstractEventLoop,
     db: Ja4Database,
     fp_log: FingerprintLogger,
+    traffic_log: TrafficLogger,
 ) -> None:
     client_ip = addr[0]
 
@@ -403,13 +416,24 @@ async def handle_connection(
             return
 
         # ── 5. Inject classification headers ────────────────────────────────
+        path = _parse_request_path(request_bytes)
         modified = _inject_headers(request_bytes, ja4, clf)
 
         # ── 6. Select backend and forward ────────────────────────────────────
         backend_host, backend_port = _select_backend(clf)
         response = await _forward_to_backend(modified, loop, backend_host, backend_port)
 
-        # ── 7. Return response to client ─────────────────────────────────────
+        # ── 7. Log to traffic DB (after forward so path is known) ────────────
+        traffic_log.record(
+            ja4=ja4,
+            path=path,
+            client_type=clf.client_type,
+            detail=clf.detail,
+            confidence=clf.confidence,
+            match_type=clf.match_type,
+        )
+
+        # ── 8. Return response to client ─────────────────────────────────────
         await loop.run_in_executor(None, lambda: ssl_sock.sendall(response))
 
     except Exception as exc:
@@ -435,6 +459,9 @@ async def main() -> None:
 
     fp_log = FingerprintLogger()
 
+    traffic_log = TrafficLogger()
+    traffic_log.open()
+
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((LISTEN_HOST, LISTEN_PORT))
@@ -448,7 +475,9 @@ async def main() -> None:
 
     while True:
         client_sock, addr = await loop.sock_accept(server_sock)
-        asyncio.create_task(handle_connection(client_sock, addr, ssl_ctx, loop, db, fp_log))
+        asyncio.create_task(
+            handle_connection(client_sock, addr, ssl_ctx, loop, db, fp_log, traffic_log)
+        )
 
 
 if __name__ == "__main__":

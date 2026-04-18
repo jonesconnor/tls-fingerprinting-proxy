@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.8] - 2026-04-17
+
+### Added
+- `proxy/traffic_logger.py`: `TrafficLogger` — SQLite-backed request logger. WAL mode enabled on open; writes serialised via `threading.Lock` with `check_same_thread=False`. No-op when `TRAFFIC_DB_PATH` is unset. Schema: `traffic_log(id, ts, ja4, path, client_type, detail, confidence, match_type)` with indexes on `ts`, `client_type`, and `match_type`.
+- `proxy/proxy.py`: `_parse_request_path()` helper; `TrafficLogger` instantiated at startup and called after `_forward_to_backend` returns so the request path is available at write time.
+- `backend/app.py`: `_query_traffic_stats()` opens a read-only URI connection to the traffic DB and runs four queries (last 50 requests, top-5 JA4 by frequency in the last 24h, hourly client-type breakdown, catalogue gap candidates seen 3+ times with heuristic match). `/stats` route renders `stats.html` with the query results and Chart.js chart data.
+- `backend/templates/stats.html`: traffic dashboard page — catalogue gap candidates (top-billed), hourly stacked bar chart via Chart.js 4.4 from CDN, top-5 fingerprint table, last-50 requests table. Theme toggle updates chart colours in-place via `chart.update('none')` without a page reload.
+- `agent/app.py`: `/stats` endpoint returning the same traffic data as JSON for non-browser clients.
+- `/stats` nav link added to `index.html`, `article.html`, and `compare.html`.
+- `docker-compose.yml` / `docker-compose.prod.yml`: `traffic-db` named volume mounted read-write on the proxy and read-only on backend and agent; `TRAFFIC_DB_PATH` env var wired to all three services.
+
 ## [2.7.7] - 2026-04-13
 
 ### Added

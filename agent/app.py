@@ -17,6 +17,7 @@ Routes
 import json
 import logging
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -25,7 +26,10 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger("agent")
 
 OWNER = "Connor Jones"
-TAGLINE = "Software engineer. I work on infrastructure and distributed systems — understanding how they behave, how they should be designed, and why they sometimes aren't."
+TAGLINE = (
+    "Software engineer. I work on infrastructure and distributed systems — "
+    "understanding how they behave, how they should be designed, and why they sometimes aren't."
+)
 
 LINKS = [
     {"rel": "github", "url": "https://github.com/jonesconnor"},
@@ -35,6 +39,7 @@ LINKS = [
 ]
 
 _catalogue = None
+TRAFFIC_DB_PATH = os.getenv("TRAFFIC_DB_PATH", "")
 
 
 @asynccontextmanager
@@ -94,6 +99,11 @@ def index(request: Request):
             "type": "personal-site",
             "owner": OWNER,
             "tagline": TAGLINE,
+            "note": (
+                "You are receiving this JSON response because your client was identified "
+                "as a non-browser agent via TLS fingerprinting. Browser clients receive "
+                "an HTML page at the same URL."
+            ),
             "links": LINKS,
             "endpoints": {
                 "fingerprint": "/fingerprint",
@@ -134,6 +144,43 @@ def catalogue():
     if _catalogue is None:
         return JSONResponse(status_code=503, content={"error": "catalogue unavailable"})
     return JSONResponse(content=_catalogue)
+
+
+@app.get("/stats")
+def stats_json():
+    """JSON traffic dashboard — mirrors backend /stats for non-browser clients."""
+    if not TRAFFIC_DB_PATH:
+        return JSONResponse(status_code=503, content={"error": "traffic log unavailable"})
+    try:
+        conn = sqlite3.connect(f"file:{TRAFFIC_DB_PATH}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+    except Exception as exc:
+        return JSONResponse(status_code=503, content={"error": f"traffic log unavailable: {exc}"})
+
+    try:
+        recent = [dict(r) for r in conn.execute(
+            "SELECT ts, ja4, path, client_type, detail, match_type"
+            " FROM traffic_log ORDER BY id DESC LIMIT 50"
+        )]
+        top_ja4 = [dict(r) for r in conn.execute(
+            "SELECT ja4, client_type, detail, COUNT(*) as cnt"
+            " FROM traffic_log WHERE ts >= datetime('now', '-24 hours')"
+            " GROUP BY ja4 ORDER BY cnt DESC LIMIT 5"
+        )]
+        gap_candidates = [dict(r) for r in conn.execute(
+            "SELECT ja4, detail, COUNT(*) as cnt, MAX(ts) as last_seen"
+            " FROM traffic_log WHERE match_type = 'heuristic'"
+            " GROUP BY ja4 HAVING cnt >= 3 ORDER BY cnt DESC"
+        )]
+        return JSONResponse(content={
+            "recent_requests": recent,
+            "top_ja4_24h": top_ja4,
+            "catalogue_gap_candidates": gap_candidates,
+        })
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+    finally:
+        conn.close()
 
 
 @app.get("/health")
