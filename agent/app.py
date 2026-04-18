@@ -26,7 +26,10 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger("agent")
 
 OWNER = "Connor Jones"
-TAGLINE = "Software engineer. I work on infrastructure and distributed systems — understanding how they behave, how they should be designed, and why they sometimes aren't."
+TAGLINE = (
+    "Software engineer. I work on infrastructure and distributed systems — "
+    "understanding how they behave, how they should be designed, and why they sometimes aren't."
+)
 
 LINKS = [
     {"rel": "github", "url": "https://github.com/jonesconnor"},
@@ -96,6 +99,11 @@ def index(request: Request):
             "type": "personal-site",
             "owner": OWNER,
             "tagline": TAGLINE,
+            "note": (
+                "You are receiving this JSON response because your client was identified "
+                "as a non-browser agent via TLS fingerprinting. Browser clients receive "
+                "an HTML page at the same URL."
+            ),
             "links": LINKS,
             "endpoints": {
                 "fingerprint": "/fingerprint",
