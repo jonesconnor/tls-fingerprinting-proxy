@@ -273,9 +273,9 @@ fetch-remote:                ## Rsync .capture-tmp/*.json from VPS into local .c
 	mkdir -p .capture-tmp
 	rsync -avz $(VPS):~/tls-fingerprinting-proxy/.capture-tmp/ .capture-tmp/
 
-capture-all-runtimes-remote: ## Run Linux captures on VPS, fetch results, merge into catalogue
+capture-all-runtimes-remote: ## Run Linux captures on VPS (assumes stack already running), fetch results, merge
 	@test -n "$(VPS)" || (echo "Usage: make capture-all-runtimes-remote VPS=user@host" && exit 1)
-	ssh $(VPS) 'cd ~/tls-fingerprinting-proxy && make up && make capture-all-runtimes-linux'
+	ssh $(VPS) 'cd ~/tls-fingerprinting-proxy && CAPTURE_PROXY_PORT=443 make capture-all-runtimes-linux'
 	$(MAKE) fetch-remote VPS=$(VPS)
 	$(MAKE) merge-catalogue
 
