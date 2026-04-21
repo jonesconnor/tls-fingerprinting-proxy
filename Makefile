@@ -15,8 +15,9 @@ _SDKS := openai-python anthropic-python httpx requests langchain-openai cohere l
 # All runtimes: used for capture-all-runtimes (serialised — avoids TODO-8 race).
 _RUNTIMES := curl node-https node-fetch node-axios go-net-http rust-reqwest chrome-playwright
 # Linux-variant runtimes only: runtimes where TLS fingerprint differs on Linux.
-# Go, Rust, and Chromium use platform-independent TLS stacks — Linux capture is a no-op.
-_LINUX_RUNTIMES := curl node-https node-fetch node-axios
+# Go and Chromium use platform-independent TLS stacks — Linux capture is a no-op.
+# Rust (rustls) produces a different JA4 on Linux vs macOS (confirmed by catalogue data).
+_LINUX_RUNTIMES := curl node-https node-fetch node-axios rust-reqwest
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
