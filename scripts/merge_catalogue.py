@@ -96,7 +96,8 @@ def merge_catalogue(
         try:
             validate_entry(entry, schema)
         except Exception as exc:
-            print(f"  WARNING: skipping {tmp_file.name} (schema error: {exc})")
+            first_line = str(exc).splitlines()[0]
+            print(f"  WARNING: skipping {tmp_file.name} (schema error: {first_line})")
             skipped += 1
             continue
 

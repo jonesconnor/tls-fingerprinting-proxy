@@ -4,7 +4,7 @@
         capture-sdk capture-sdk-linux capture-all capture-all-linux merge-catalogue \
         $(addprefix _capture-macos-,$(_SDKS)) $(addprefix _capture-linux-,$(_SDKS)) \
         capture-runtime capture-runtime-linux capture-all-runtimes capture-all-runtimes-linux \
-        capture-all-runtimes-remote fetch-remote \
+        capture-all-runtimes-remote fetch-remote clean-capture-tmp \
         setup-playwright \
         $(addprefix _capture-runtime-,$(_RUNTIMES)) \
         $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES))
@@ -241,6 +241,7 @@ $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES)): _capture-runtime-linux-
 	uv run --project scripts scripts/capture_runtime.py --runtime $* --linux
 
 capture-all-runtimes:        ## Capture all runtimes (serialised) then merge into catalogue
+	$(MAKE) clean-capture-tmp
 	$(MAKE) -j 1 $(addprefix _capture-runtime-,$(_RUNTIMES))
 	$(MAKE) merge-catalogue
 
@@ -275,7 +276,7 @@ fetch-remote:                ## Rsync .capture-tmp/*.json from VPS into local .c
 
 capture-all-runtimes-remote: ## Run Linux captures on VPS (assumes stack already running), fetch results, merge
 	@test -n "$(VPS)" || (echo "Usage: make capture-all-runtimes-remote VPS=user@host" && exit 1)
-	ssh $(VPS) 'export PATH="$$HOME/.local/bin:$$PATH" && cd ~/tls-fingerprinting-proxy && git pull && CAPTURE_PROXY_PORT=443 make capture-all-runtimes-linux'
+	ssh $(VPS) 'export PATH="$$HOME/.local/bin:$$PATH" && cd ~/tls-fingerprinting-proxy && git pull && make clean-capture-tmp && CAPTURE_PROXY_PORT=443 make capture-all-runtimes-linux'
 	$(MAKE) fetch-remote VPS=$(VPS)
 	$(MAKE) merge-catalogue
 
@@ -284,3 +285,6 @@ capture-all-runtimes-remote: ## Run Linux captures on VPS (assumes stack already
 clean:
 	docker compose down --rmi local --volumes
 	rm -f certs/proxy.crt certs/proxy.key
+
+clean-capture-tmp:           ## Remove intermediate capture files (run before a fresh capture)
+	rm -rf .capture-tmp
