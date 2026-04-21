@@ -4,6 +4,7 @@
         capture-sdk capture-sdk-linux capture-all capture-all-linux merge-catalogue \
         $(addprefix _capture-macos-,$(_SDKS)) $(addprefix _capture-linux-,$(_SDKS)) \
         capture-runtime capture-runtime-linux capture-all-runtimes capture-all-runtimes-linux \
+        capture-all-runtimes-remote fetch-remote \
         setup-playwright \
         $(addprefix _capture-runtime-,$(_RUNTIMES)) \
         $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES))
@@ -249,6 +250,34 @@ capture-all-runtimes-linux:  ## Capture Linux-variant runtimes (curl, node-*) th
 
 setup-playwright:            ## One-time setup: install Playwright + download Chromium (~200 MB)
 	python3 -c "import sys; sys.path.insert(0,'scripts'); from capture_runtime import _ensure_playwright_env; _ensure_playwright_env()"
+
+# ── Cross-platform capture ─────────────────────────────────────────────────
+#
+# Captures fingerprints on both this machine and a remote Linux VPS, then
+# merges all results into the catalogue in one pass.
+#
+# Workflow:
+#   1. make capture-all-runtimes              # Mac-native fingerprints → .capture-tmp/
+#   2. make capture-all-runtimes-remote VPS=user@host
+#      → SSH to VPS, run Linux captures there, rsync results back, merge all
+#   3. git add catalogue/ai-sdk-fingerprints.json && git commit
+#
+# The remote repo is expected at ~/tls-fingerprinting-proxy on the VPS.
+# Go, Rust, and Chromium produce the same JA4 on both platforms — the merge
+# script will warn and skip those duplicates automatically.
+
+VPS ?=
+
+fetch-remote:                ## Rsync .capture-tmp/*.json from VPS into local .capture-tmp/
+	@test -n "$(VPS)" || (echo "Usage: make fetch-remote VPS=user@host" && exit 1)
+	mkdir -p .capture-tmp
+	rsync -avz $(VPS):~/tls-fingerprinting-proxy/.capture-tmp/ .capture-tmp/
+
+capture-all-runtimes-remote: ## Run Linux captures on VPS, fetch results, merge into catalogue
+	@test -n "$(VPS)" || (echo "Usage: make capture-all-runtimes-remote VPS=user@host" && exit 1)
+	ssh $(VPS) 'cd ~/tls-fingerprinting-proxy && make up && make capture-all-runtimes-linux'
+	$(MAKE) fetch-remote VPS=$(VPS)
+	$(MAKE) merge-catalogue
 
 # ── Utilities ──────────────────────────────────────────────────────────────
 
