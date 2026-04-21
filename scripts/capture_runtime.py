@@ -97,8 +97,8 @@ PLAYWRIGHT_ENV   = PROJECT_ROOT / ".playwright-env"
 # Override port with CAPTURE_PROXY_PORT env var (e.g. prod uses 443, not 8443).
 _capture_port    = os.getenv("CAPTURE_PROXY_PORT", "8443")
 PROXY_URL        = f"https://localhost:{_capture_port}"
-# Reachable from inside a Docker container on the same host (macOS + Linux).
-LINUX_PROXY_URL  = f"https://host.docker.internal:{_capture_port}"
+# Linux Docker captures use --network=host so localhost resolves to the host directly.
+LINUX_PROXY_URL  = PROXY_URL
 
 # ── Source code templates ────────────────────────────────────────────────────
 #
@@ -645,7 +645,7 @@ def _capture_curl(config: dict, linux: bool, platform_label: str) -> dict:
         subprocess.run(
             [
                 "docker", "run", "--rm",
-                "--add-host=host.docker.internal:host-gateway",
+                "--network=host",
                 config["docker_image"],
                 "curl", "-sk", "--max-time", "10", url,
             ],
@@ -754,8 +754,11 @@ def _run_node_native(npm_dir: str | None, js_code: str) -> None:
 def _run_node_linux(docker_image: str, npm_package: str | None, js_code: str) -> None:
     """Run a JS one-liner inside a Docker container."""
     if npm_package:
+        # cd to a fresh tmpdir to avoid npm's "idealTree already exists" error
+        # which occurs when npm runs in a directory with pre-existing npm metadata.
         cmd = (
-            f"npm install {shlex.quote(npm_package)} --silent --no-fund --no-audit "
+            f"cd $(mktemp -d) "
+            f"&& npm install {shlex.quote(npm_package)} --silent --no-fund --no-audit "
             f"&& node -e {json.dumps(js_code)}"
         )
     else:
@@ -764,7 +767,7 @@ def _run_node_linux(docker_image: str, npm_package: str | None, js_code: str) ->
     subprocess.run(
         [
             "docker", "run", "--rm",
-            "--add-host=host.docker.internal:host-gateway",
+            "--network=host",
             docker_image,
             "bash", "-c", cmd,
         ],
