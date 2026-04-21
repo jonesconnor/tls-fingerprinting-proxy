@@ -218,3 +218,6 @@ certs/*.pem
 # Let's Encrypt cert directory (contains private keys)
 certs/letsencrypt/
 .gstack/
+
+# Intermediate fingerprint capture output (merged into catalogue/ before committing)
+.capture-tmp/

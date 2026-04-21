@@ -4,6 +4,7 @@
         capture-sdk capture-sdk-linux capture-all capture-all-linux merge-catalogue \
         $(addprefix _capture-macos-,$(_SDKS)) $(addprefix _capture-linux-,$(_SDKS)) \
         capture-runtime capture-runtime-linux capture-all-runtimes capture-all-runtimes-linux \
+        capture-all-runtimes-remote fetch-remote clean-capture-tmp \
         setup-playwright \
         $(addprefix _capture-runtime-,$(_RUNTIMES)) \
         $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES))
@@ -14,8 +15,9 @@ _SDKS := openai-python anthropic-python httpx requests langchain-openai cohere l
 # All runtimes: used for capture-all-runtimes (serialised — avoids TODO-8 race).
 _RUNTIMES := curl node-https node-fetch node-axios go-net-http rust-reqwest chrome-playwright
 # Linux-variant runtimes only: runtimes where TLS fingerprint differs on Linux.
-# Go, Rust, and Chromium use platform-independent TLS stacks — Linux capture is a no-op.
-_LINUX_RUNTIMES := curl node-https node-fetch node-axios
+# Go and Chromium use platform-independent TLS stacks — Linux capture is a no-op.
+# Rust (rustls) produces a different JA4 on Linux vs macOS (confirmed by catalogue data).
+_LINUX_RUNTIMES := curl node-https node-fetch node-axios rust-reqwest
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
@@ -164,18 +166,18 @@ renew-certs:
 
 capture-sdk:
 	@test -n "$(SDK)" || (echo "Usage: make capture-sdk SDK=openai-python" && exit 1)
-	python3 scripts/capture_sdk.py --sdk '$(SDK)'
+	uv run --project scripts scripts/capture_sdk.py --sdk '$(SDK)'
 
 capture-sdk-linux:
 	@test -n "$(SDK)" || (echo "Usage: make capture-sdk-linux SDK=openai-python" && exit 1)
-	python3 scripts/capture_sdk.py --sdk '$(SDK)' --linux
+	uv run --project scripts scripts/capture_sdk.py --sdk '$(SDK)' --linux
 
 # Hidden per-SDK targets used by capture-all / capture-all-linux
 $(addprefix _capture-macos-,$(_SDKS)): _capture-macos-%:
-	python3 scripts/capture_sdk.py --sdk $*
+	uv run --project scripts scripts/capture_sdk.py --sdk $*
 
 $(addprefix _capture-linux-,$(_SDKS)): _capture-linux-%:
-	python3 scripts/capture_sdk.py --sdk $* --linux
+	uv run --project scripts scripts/capture_sdk.py --sdk $* --linux
 
 capture-all:
 	$(MAKE) -j 4 $(addprefix _capture-macos-,$(_SDKS))
@@ -186,7 +188,7 @@ capture-all-linux:
 	$(MAKE) merge-catalogue
 
 merge-catalogue:
-	python3 scripts/merge_catalogue.py
+	uv run --project scripts scripts/merge_catalogue.py
 
 # ── Language-runtime fingerprint capture ──────────────────────────────────
 #
@@ -222,11 +224,11 @@ RUNTIME ?= curl
 
 capture-runtime:             ## Capture TLS fingerprint for one runtime (native)
 	@test -n "$(RUNTIME)" || (echo "Usage: make capture-runtime RUNTIME=curl" && exit 1)
-	python3 scripts/capture_runtime.py --runtime '$(RUNTIME)'
+	uv run --project scripts scripts/capture_runtime.py --runtime '$(RUNTIME)'
 
 capture-runtime-linux:       ## Linux-variant capture: make capture-runtime-linux RUNTIME=curl
 	@test -n "$(RUNTIME)" || (echo "Usage: make capture-runtime-linux RUNTIME=curl" && exit 1)
-	python3 scripts/capture_runtime.py --runtime '$(RUNTIME)' --linux
+	uv run --project scripts scripts/capture_runtime.py --runtime '$(RUNTIME)' --linux
 
 # Hidden per-runtime targets used by capture-all-runtimes.
 # Serialised (-j 1) to avoid the NDJSON concurrent-capture race (TODO-8):
@@ -234,12 +236,13 @@ capture-runtime-linux:       ## Linux-variant capture: make capture-runtime-linu
 # entry with ts >= T — under concurrency, a different worker's handshake
 # could be attributed to the wrong runtime.
 $(addprefix _capture-runtime-,$(_RUNTIMES)): _capture-runtime-%:
-	python3 scripts/capture_runtime.py --runtime $*
+	uv run --project scripts scripts/capture_runtime.py --runtime $*
 
 $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES)): _capture-runtime-linux-%:
-	python3 scripts/capture_runtime.py --runtime $* --linux
+	uv run --project scripts scripts/capture_runtime.py --runtime $* --linux
 
 capture-all-runtimes:        ## Capture all runtimes (serialised) then merge into catalogue
+	$(MAKE) clean-capture-tmp
 	$(MAKE) -j 1 $(addprefix _capture-runtime-,$(_RUNTIMES))
 	$(MAKE) merge-catalogue
 
@@ -248,10 +251,41 @@ capture-all-runtimes-linux:  ## Capture Linux-variant runtimes (curl, node-*) th
 	$(MAKE) merge-catalogue
 
 setup-playwright:            ## One-time setup: install Playwright + download Chromium (~200 MB)
-	python3 -c "import sys; sys.path.insert(0,'scripts'); from capture_runtime import _ensure_playwright_env; _ensure_playwright_env()"
+	uv run --project scripts python3 -c "import sys; sys.path.insert(0,'scripts'); from capture_runtime import _ensure_playwright_env; _ensure_playwright_env()"
+
+# ── Cross-platform capture ─────────────────────────────────────────────────
+#
+# Captures fingerprints on both this machine and a remote Linux VPS, then
+# merges all results into the catalogue in one pass.
+#
+# Workflow:
+#   1. make capture-all-runtimes              # Mac-native fingerprints → .capture-tmp/
+#   2. make capture-all-runtimes-remote VPS=user@host
+#      → SSH to VPS, run Linux captures there, rsync results back, merge all
+#   3. git add catalogue/ai-sdk-fingerprints.json && git commit
+#
+# The remote repo is expected at ~/tls-fingerprinting-proxy on the VPS.
+# Go, Rust, and Chromium produce the same JA4 on both platforms — the merge
+# script will warn and skip those duplicates automatically.
+
+VPS ?=
+
+fetch-remote:                ## Rsync .capture-tmp/*.json from VPS into local .capture-tmp/
+	@test -n "$(VPS)" || (echo "Usage: make fetch-remote VPS=user@host" && exit 1)
+	mkdir -p .capture-tmp
+	rsync -avz $(VPS):~/tls-fingerprinting-proxy/.capture-tmp/ .capture-tmp/
+
+capture-all-runtimes-remote: ## Run Linux captures on VPS (assumes stack already running), fetch results, merge
+	@test -n "$(VPS)" || (echo "Usage: make capture-all-runtimes-remote VPS=user@host" && exit 1)
+	ssh $(VPS) 'export PATH="$$HOME/.local/bin:$$PATH" && cd ~/tls-fingerprinting-proxy && git pull && make clean-capture-tmp && CAPTURE_PROXY_PORT=443 make capture-all-runtimes-linux'
+	$(MAKE) fetch-remote VPS=$(VPS)
+	$(MAKE) merge-catalogue
 
 # ── Utilities ──────────────────────────────────────────────────────────────
 
 clean:
 	docker compose down --rmi local --volumes
 	rm -f certs/proxy.crt certs/proxy.key
+
+clean-capture-tmp:           ## Remove intermediate capture files (run before a fresh capture)
+	rm -rf .capture-tmp
