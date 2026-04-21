@@ -165,18 +165,18 @@ renew-certs:
 
 capture-sdk:
 	@test -n "$(SDK)" || (echo "Usage: make capture-sdk SDK=openai-python" && exit 1)
-	python3 scripts/capture_sdk.py --sdk '$(SDK)'
+	uv run --project scripts scripts/capture_sdk.py --sdk '$(SDK)'
 
 capture-sdk-linux:
 	@test -n "$(SDK)" || (echo "Usage: make capture-sdk-linux SDK=openai-python" && exit 1)
-	python3 scripts/capture_sdk.py --sdk '$(SDK)' --linux
+	uv run --project scripts scripts/capture_sdk.py --sdk '$(SDK)' --linux
 
 # Hidden per-SDK targets used by capture-all / capture-all-linux
 $(addprefix _capture-macos-,$(_SDKS)): _capture-macos-%:
-	python3 scripts/capture_sdk.py --sdk $*
+	uv run --project scripts scripts/capture_sdk.py --sdk $*
 
 $(addprefix _capture-linux-,$(_SDKS)): _capture-linux-%:
-	python3 scripts/capture_sdk.py --sdk $* --linux
+	uv run --project scripts scripts/capture_sdk.py --sdk $* --linux
 
 capture-all:
 	$(MAKE) -j 4 $(addprefix _capture-macos-,$(_SDKS))
@@ -187,7 +187,7 @@ capture-all-linux:
 	$(MAKE) merge-catalogue
 
 merge-catalogue:
-	python3 scripts/merge_catalogue.py
+	uv run --project scripts scripts/merge_catalogue.py
 
 # ── Language-runtime fingerprint capture ──────────────────────────────────
 #
@@ -223,11 +223,11 @@ RUNTIME ?= curl
 
 capture-runtime:             ## Capture TLS fingerprint for one runtime (native)
 	@test -n "$(RUNTIME)" || (echo "Usage: make capture-runtime RUNTIME=curl" && exit 1)
-	python3 scripts/capture_runtime.py --runtime '$(RUNTIME)'
+	uv run --project scripts scripts/capture_runtime.py --runtime '$(RUNTIME)'
 
 capture-runtime-linux:       ## Linux-variant capture: make capture-runtime-linux RUNTIME=curl
 	@test -n "$(RUNTIME)" || (echo "Usage: make capture-runtime-linux RUNTIME=curl" && exit 1)
-	python3 scripts/capture_runtime.py --runtime '$(RUNTIME)' --linux
+	uv run --project scripts scripts/capture_runtime.py --runtime '$(RUNTIME)' --linux
 
 # Hidden per-runtime targets used by capture-all-runtimes.
 # Serialised (-j 1) to avoid the NDJSON concurrent-capture race (TODO-8):
@@ -235,10 +235,10 @@ capture-runtime-linux:       ## Linux-variant capture: make capture-runtime-linu
 # entry with ts >= T — under concurrency, a different worker's handshake
 # could be attributed to the wrong runtime.
 $(addprefix _capture-runtime-,$(_RUNTIMES)): _capture-runtime-%:
-	python3 scripts/capture_runtime.py --runtime $*
+	uv run --project scripts scripts/capture_runtime.py --runtime $*
 
 $(addprefix _capture-runtime-linux-,$(_LINUX_RUNTIMES)): _capture-runtime-linux-%:
-	python3 scripts/capture_runtime.py --runtime $* --linux
+	uv run --project scripts scripts/capture_runtime.py --runtime $* --linux
 
 capture-all-runtimes:        ## Capture all runtimes (serialised) then merge into catalogue
 	$(MAKE) -j 1 $(addprefix _capture-runtime-,$(_RUNTIMES))
@@ -249,7 +249,7 @@ capture-all-runtimes-linux:  ## Capture Linux-variant runtimes (curl, node-*) th
 	$(MAKE) merge-catalogue
 
 setup-playwright:            ## One-time setup: install Playwright + download Chromium (~200 MB)
-	python3 -c "import sys; sys.path.insert(0,'scripts'); from capture_runtime import _ensure_playwright_env; _ensure_playwright_env()"
+	uv run --project scripts python3 -c "import sys; sys.path.insert(0,'scripts'); from capture_runtime import _ensure_playwright_env; _ensure_playwright_env()"
 
 # ── Cross-platform capture ─────────────────────────────────────────────────
 #
