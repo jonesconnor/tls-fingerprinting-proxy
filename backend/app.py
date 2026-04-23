@@ -31,8 +31,14 @@ TRAFFIC_DB_PATH = os.getenv("TRAFFIC_DB_PATH", "")
 
 ARTICLE = {
     "id": "tls-fingerprinting-and-the-agentic-web",
-    "title": "Cloudflare published an Agent Readiness Score. I've been trying to answer a different question.",
-    "subtitle": "Their tool asks if your site is configured to serve agents. Mine asks if you can identify agent traffic before it says a word.",
+    "title": (
+        "Cloudflare published an Agent Readiness Score. "
+        "I've been trying to answer a different question."
+    ),
+    "subtitle": (
+        "Their tool asks if your site is configured to serve agents. "
+        "Mine asks if you can identify agent traffic before it says a word."
+    ),
     "author": "Connor Jones",
     "published_at": "2026-04-22T00:00:00Z",
     "canonical_url": "/writing/tls-fingerprinting",
@@ -117,7 +123,8 @@ ARTICLE = {
                 "is unavailable in that architecture. Running this classification requires sitting "
                 "before that termination point. What you get is routing logic that requires no "
                 "application changes: serve structured data to agents, rate-limit by client class, "
-                "log runtime version drift — all from a header the proxy injects before HTTP begins."
+                "log runtime version drift — all from a header the proxy injects"
+                " before HTTP begins."
             ),
         },
     ],
