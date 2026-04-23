@@ -31,69 +31,93 @@ TRAFFIC_DB_PATH = os.getenv("TRAFFIC_DB_PATH", "")
 
 ARTICLE = {
     "id": "tls-fingerprinting-and-the-agentic-web",
-    "title": "What Your TLS Handshake Reveals About You",
-    "subtitle": "Before you ask for a page, the server already knows what you are.",
-    "author": "TLS Fingerprinting Proxy",
-    "published_at": "2025-01-01T00:00:00Z",
-    "canonical_url": "/",
+    "title": "Cloudflare published an Agent Readiness Score. I've been trying to answer a different question.",
+    "subtitle": "Their tool asks if your site is configured to serve agents. Mine asks if you can identify agent traffic before it says a word.",
+    "author": "Connor Jones",
+    "published_at": "2026-04-22T00:00:00Z",
+    "canonical_url": "/writing/tls-fingerprinting",
     "topics": ["tls", "networking", "ai-agents", "fingerprinting", "security"],
-    "reading_time_minutes": 4,
+    "reading_time_minutes": 8,
     "sections": [
         {
-            "heading": "The Handshake Happens First",
+            "heading": "The Lede",
             "body": (
-                "Every HTTPS connection begins with a TLS handshake. Before your browser "
-                "sends a GET request, before any cookies are transmitted, before JavaScript "
-                "runs — the client and server negotiate how to communicate securely. The "
-                "client sends a ClientHello message listing the cipher suites and TLS "
-                "extensions it supports. That list is determined by the underlying TLS "
-                "library, not by the application. Chrome uses Google's BoringSSL. Python "
-                "uses OpenSSL. Go has its own crypto/tls. Each produces a detectably "
-                "different ClientHello."
+                "Cloudflare published a post last week introducing a tool that checks whether "
+                "your site is configured to work well with AI agents — an 'agent readiness "
+                "score.' Does it have a robots.txt? Does it serve clean markdown when an agent "
+                "asks for it? Does it expose an MCP server? All good signals, but every one "
+                "depends on the agent or the server choosing to declare intent. The authors "
+                "mention that as of February 2026, only 3 of 7 agents they tested actually "
+                "request markdown by default. I've been working on a different question: can "
+                "you tell what kind of client is connecting before it says anything at all? "
+                "I expected to find that each AI SDK left its own mark. It doesn't work that "
+                "way. Every Python AI SDK looked identical. The mark isn't left by the SDK — "
+                "it's left by something lower down."
             ),
         },
         {
-            "heading": "JA4: Hashing the Handshake",
+            "heading": "The handshake happens before hello",
             "body": (
-                "JA4 (developed by John Althouse at FoxIO) takes the fields of a "
-                "ClientHello — cipher suites, extension types, ALPN values, signature "
-                "algorithms — and hashes them into a structured, queryable fingerprint "
-                "string. A lookup database at ja4db.com maps known hashes to identified "
-                "clients. The format is: {transport}{version}{sni}{ciphers}{extensions}"
-                "{alpn}_{cipher_hash}_{extension_hash}."
+                "When you connect to a website over HTTPS, there's a negotiation that happens "
+                "before any content is exchanged. The client sends a ClientHello message — the "
+                "first packet in the TLS handshake — listing the cipher suites and extensions "
+                "it supports. Only after the handshake completes does the browser send an HTTP "
+                "request. The contents of that ClientHello are controlled by the TLS library the "
+                "client was compiled against, not the application running on top of it. A Python "
+                "script using the Anthropic SDK and one using the OpenAI SDK both go through the "
+                "same underlying TLS library. They look identical at this layer. JA4 is a hashing "
+                "scheme that turns ClientHello contents into a short, comparable string. Chrome "
+                "deliberately inserts random reserved values (GREASE, RFC 8701) into its "
+                "ClientHello — their presence is a near-certain browser signal."
             ),
         },
         {
-            "heading": "GREASE: The Most Reliable Browser Signal",
+            "heading": "What the catalogue actually shows",
             "body": (
-                "Chrome deliberately inserts reserved 'garbage' values into its cipher "
-                "suite and extension lists. This is GREASE (Generate Random Extensions And "
-                "Sustain Extensibility, RFC 8701) — a mechanism to prevent server software "
-                "from hardcoding assumptions about valid ClientHello values. Its presence "
-                "strongly indicates a Chrome-family browser. Its absence in an otherwise "
-                "browser-like fingerprint is a meaningful signal."
+                "All Python AI SDKs — OpenAI, Anthropic, LangChain — produce the same fingerprint "
+                "on the same machine. Not similar. Identical. The SDK doesn't control the TLS "
+                "handshake; the language does, specifically the TLS library it's built on. "
+                "Go's TLS implementation is entirely its own (crypto/tls) — unambiguous from the "
+                "first packet, nothing else in the catalogue resembles it. curl on macOS links "
+                "against LibreSSL; curl on Linux links against OpenSSL — same tool, completely "
+                "different profile. The overlap between Rust and curl on Linux is real: both link "
+                "against OpenSSL, sharing cipher suite characteristics. ALPN presence is usually "
+                "enough to separate them, but this is probabilistic, not deterministic. The "
+                "agent/tool distinction in the classifier rests on a single signal: extension "
+                "count. curl sends 7-8 extensions, Python's HTTP library sends 9-12. One "
+                "threshold. A curl with extra flags, or a minimal Python client, would cross it "
+                "in the wrong direction."
             ),
         },
         {
-            "heading": "AI Agents Have a Fingerprint Too",
+            "heading": "This site serves agents differently",
             "body": (
-                "Every major AI agent SDK — OpenAI's Python client, Anthropic's SDK, "
-                "LangChain, LlamaIndex — makes HTTP requests using Python's httpx or "
-                "requests library, which uses OpenSSL under the hood. The OpenSSL "
-                "fingerprint is distinctive: a large permissive cipher list (40+ suites), "
-                "few extensions, no GREASE, no Encrypted Client Hello. This is not a flaw "
-                "in the SDKs — it's simply what the Python TLS stack looks like."
+                "The terminal at the top of the article page wasn't a mockup. When you loaded "
+                "it, a proxy classified your connection before the TLS handshake was complete and "
+                "routed you to a different backend based on what it found. Browsers get HTML. "
+                "Python clients, Go programs, and curl get JSON. The proxy reads the ClientHello "
+                "using MSG_PEEK — a socket operation that copies bytes from the kernel buffer "
+                "without consuming them. That's enough to compute the JA4 fingerprint and "
+                "classify the client. The bytes remain in the buffer; the proxy proceeds with a "
+                "normal TLS handshake. The classification headers (X-Client-Type, X-Client-JA4, "
+                "X-Client-Confidence) arrive at the backend before a single line of application "
+                "code runs. You are reading this JSON response because your client_type was "
+                "classified as non-browser at the network layer, before any HTTP was exchanged."
             ),
         },
         {
-            "heading": "Serving Agents Differently",
+            "heading": "Two layers, two different problems",
             "body": (
-                "Once you can identify agents at the network layer, you can route them to "
-                "a representation of your content that is optimized for machine consumption: "
-                "structured JSON instead of HTML, explicit action schemas instead of forms, "
-                "complete data instead of paginated views, absolute URLs, and rich metadata. "
-                "The web has always served one representation to every client. That assumption "
-                "is about to break."
+                "The application layer tells you whether your site is configured to serve agents. "
+                "The TLS layer tells you what's actually connecting, regardless of what it claims. "
+                "Neither is sufficient alone. TLS identity without good application-layer serving "
+                "is just a label. Application-layer readiness without identity requires agents to "
+                "opt in before it works. Cloudflare Tunnel terminates TLS at the edge — the "
+                "ClientHello never reaches your origin server, so transport-layer fingerprinting "
+                "is unavailable in that architecture. Running this classification requires sitting "
+                "before that termination point. What you get is routing logic that requires no "
+                "application changes: serve structured data to agents, rate-limit by client class, "
+                "log runtime version drift — all from a header the proxy injects before HTTP begins."
             ),
         },
     ],

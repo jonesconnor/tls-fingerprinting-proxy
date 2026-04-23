@@ -406,6 +406,13 @@
       .gap-card-right { align-items: flex-start; flex-direction: row; gap: 0.75rem; }
     }
   </style>
+  <script>
+    (function() {
+      var t = localStorage.getItem('theme') ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body>
 
@@ -440,6 +447,7 @@
         const html = document.documentElement;
         const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
         this.textContent = next === 'dark' ? 'light' : 'dark';
       ">dark</button>
     </div>
@@ -696,6 +704,9 @@
     })();
   </script>
   {% endif %}
-
+  <script>
+    document.querySelector('.theme-toggle').textContent =
+      document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  </script>
 </body>
 </html>

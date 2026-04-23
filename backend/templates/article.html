@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ article.title }} — Connor Jones</title>
+  <title>TLS Fingerprinting and the Agentic Web — Connor Jones</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -56,9 +56,91 @@
       font-family: 'Instrument Sans', -apple-system, sans-serif;
       font-size: 16px;
       line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Nav ──────────────────────────────────────────────────────────── */
+    /* ── Terminal window banner ───────────────────────────────────────────── */
+    .terminal-window {
+      background: #0c0c0f;
+      border-bottom: 1px solid #252530;
+      font-family: 'JetBrains Mono', monospace;
+      animation: fadein 200ms ease-out;
+    }
+
+    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+    .terminal-titlebar {
+      display: flex;
+      align-items: center;
+      padding: 0.55rem 1rem;
+      background: #1d1d22;
+      border-bottom: 1px solid #252530;
+      gap: 0.6rem;
+    }
+
+    .terminal-dots { display: flex; gap: 0.38rem; }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red    { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green  { background: #27c93f; }
+
+    .terminal-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #44445a;
+      margin: 0 auto;
+      letter-spacing: 0.02em;
+    }
+
+    .terminal-body {
+      padding: 1.1rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .t-line {
+      display: flex;
+      align-items: baseline;
+      line-height: 1.65;
+      font-size: 0.78rem;
+    }
+
+    .t-key {
+      color: #555570;
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+
+    .t-val         { color: #e8e8ec; }
+    .t-val-browser { color: #4ade80; }
+    .t-val-agent   { color: #e8a020; }
+    .t-val-tool    { color: #e8a020; }
+    .t-val-headless{ color: #f87171; }
+    .t-val-unknown { color: #8888a0; }
+    .t-accent      { color: #e8a020; font-size: 0.75rem; }
+
+    .t-comment {
+      color: #44445a;
+      font-size: 0.72rem;
+      margin-top: 0.45rem;
+      font-style: italic;
+    }
+
+    .cursor {
+      display: inline-block;
+      color: #e8a020;
+      animation: blink 1.1s step-end infinite;
+      margin-left: 1px;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ── Nav ─────────────────────────────────────────────────────────────── */
     nav {
       position: sticky;
       top: 0;
@@ -73,9 +155,7 @@
       border-bottom: 1px solid var(--border);
     }
 
-    [data-theme="light"] nav {
-      background: rgba(248, 247, 244, 0.92);
-    }
+    [data-theme="light"] nav { background: rgba(248, 247, 244, 0.92); }
 
     .nav-brand {
       font-family: 'JetBrains Mono', monospace;
@@ -85,29 +165,18 @@
       letter-spacing: 0.04em;
       text-decoration: none;
     }
-
     .nav-brand span { color: var(--accent); }
 
-    .nav-right {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-    }
+    .nav-right { display: flex; align-items: center; gap: 1.5rem; }
 
-    .nav-links {
-      display: flex;
-      gap: 1.5rem;
-      list-style: none;
-    }
-
+    .nav-links { display: flex; gap: 1.5rem; list-style: none; }
     .nav-links a {
       color: var(--muted);
       text-decoration: none;
       font-size: 0.82rem;
-      font-family: 'Instrument Sans', sans-serif;
+      font-family: 'JetBrains Mono', monospace;
       transition: color 0.15s;
     }
-
     .nav-links a:hover { color: var(--text); }
 
     .theme-toggle {
@@ -121,89 +190,16 @@
       cursor: pointer;
       transition: color 0.15s, border-color 0.15s;
     }
-
     .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
 
-    /* ── Classification banner ────────────────────────────────────────── */
-    .classification-bar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 1.25rem 2rem;
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.78rem;
-      animation: fadein 200ms ease-out;
-    }
-
-    @keyframes fadein {
-      from { opacity: 0; }
-      to   { opacity: 1; }
-    }
-
-    .detected-label {
-      color: var(--muted);
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.28rem 0.65rem;
-      border-radius: 3px;
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 500;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .badge-browser  { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.25); }
-    .badge-agent    { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
-    .badge-tool     { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
-    .badge-headless { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(248, 113, 113, 0.25); }
-    .badge-unknown  { background: var(--gray-dim);  color: var(--muted); border: 1px solid var(--border); }
-
-    .ja4-pill { color: var(--muted); font-size: 0.72rem; }
-    .ja4-hash { color: var(--accent); }
-
-    .signal-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-
-    .chip {
-      padding: 0.15rem 0.4rem;
-      border-radius: 2px;
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.67rem;
-    }
-
-    .match-pill {
-      padding: 0.15rem 0.45rem;
-      border-radius: 2px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.67rem;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-    }
-    .match-pill-exact     { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.25); }
-    .match-pill-near      { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
-    .match-pill-heuristic { background: var(--gray-dim);  color: var(--muted); border: 1px solid var(--border); }
-
-    /* ── Layout ───────────────────────────────────────────────────────── */
+    /* ── Layout ──────────────────────────────────────────────────────────── */
     .container {
       max-width: 720px;
       margin: 0 auto;
       padding: 0 1.5rem;
     }
 
-    /* ── Article header ───────────────────────────────────────────────── */
+    /* ── Article header ──────────────────────────────────────────────────── */
     header.article-header {
       padding: 3.5rem 0 2.5rem;
       border-bottom: 1px solid var(--border);
@@ -231,7 +227,7 @@
 
     h1.article-title {
       font-family: 'Fraunces', Georgia, serif;
-      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-size: clamp(1.7rem, 4vw, 2.4rem);
       font-weight: 700;
       line-height: 1.15;
       letter-spacing: -0.02em;
@@ -240,7 +236,6 @@
     }
 
     .article-subtitle {
-      font-family: 'Instrument Sans', sans-serif;
       font-size: 1.05rem;
       color: var(--muted);
       margin-bottom: 1.5rem;
@@ -255,33 +250,193 @@
       gap: 1.25rem;
     }
 
-    /* ── Article body ─────────────────────────────────────────────────── */
-    .article-body {
-      margin-bottom: 3.5rem;
-    }
+    /* ── Article body ─────────────────────────────────────────────────────── */
+    .article-body { margin-bottom: 3.5rem; }
 
-    .section {
-      margin-bottom: 2.5rem;
-    }
+    .section { margin-bottom: 2.75rem; }
 
     h2.section-heading {
       font-family: 'Instrument Sans', sans-serif;
       font-size: 1.05rem;
       font-weight: 600;
-      margin-bottom: 0.6rem;
       color: var(--text);
       padding-bottom: 0.4rem;
       border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+      margin-top: 2.75rem;
     }
 
-    .section p {
-      font-family: 'Instrument Sans', sans-serif;
+    .article-body p {
       font-size: 0.95rem;
-      color: var(--muted);
-      line-height: 1.75;
+      color: var(--text);
+      line-height: 1.78;
+      margin-bottom: 1.1rem;
     }
 
-    /* ── Debug panel ──────────────────────────────────────────────────── */
+    .article-body p:last-child { margin-bottom: 0; }
+
+    .article-body a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .article-body a:hover { border-bottom-color: var(--accent); }
+
+    /* ── ASCII diagrams ──────────────────────────────────────────────────── */
+    .ascii-diagram {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.73rem;
+      line-height: 1.65;
+      color: var(--muted);
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      white-space: pre;
+    }
+
+    .ascii-diagram .hl  { color: var(--accent); }
+    .ascii-diagram .dim { color: #44445a; }
+    .ascii-diagram .ok  { color: var(--green); }
+
+    /* ── Comparison table ────────────────────────────────────────────────── */
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+    }
+
+    .compare-table th {
+      text-align: left;
+      padding: 0.55rem 0.85rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .compare-table td {
+      padding: 0.55rem 0.85rem;
+      border-bottom: 1px solid rgba(37, 37, 48, 0.5);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    [data-theme="light"] .compare-table td { border-bottom-color: var(--border); }
+
+    .compare-table tr:last-child td { border-bottom: none; }
+
+    .compare-table td.muted { color: var(--muted); }
+
+    .sig-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.67rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .sig-ok     { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.25); }
+    .sig-warn   { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(232, 160, 32, 0.25); }
+    .sig-bad    { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(248, 113, 113, 0.25); }
+
+    /* ── Callout box ─────────────────────────────────────────────────────── */
+    .callout {
+      border-left: 2px solid var(--accent);
+      background: var(--accent-glow);
+      padding: 0.9rem 1.25rem;
+      margin: 1.5rem 0;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    .callout-warn {
+      border-left-color: var(--muted);
+      background: var(--gray-dim);
+    }
+
+    /* ── Interactive JSON terminal ──────────────────────────────────────── */
+    .json-terminal-outer {
+      background: #0c0c0f;
+      border: 1px solid #252530;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 1.5rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.73rem;
+    }
+
+    .json-terminal-titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 1rem;
+      background: #1d1d22;
+      border-bottom: 1px solid #252530;
+    }
+
+    .json-terminal-title { color: #44445a; font-size: 0.7rem; }
+
+    .curl-btn {
+      background: none;
+      border: 1px solid #333345;
+      color: #8888a0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      padding: 0.28rem 0.7rem;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .curl-btn:hover:not(:disabled) { color: #e8a020; border-color: #e8a020; }
+    .curl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .json-terminal-body {
+      padding: 1rem 1.25rem;
+      min-height: 56px;
+      color: #8888a0;
+      line-height: 1.6;
+    }
+
+    .json-terminal-body .cmd-line  { color: #4ade80; margin-bottom: 0.4rem; }
+    .json-terminal-body .resp-line { color: #8888a0; margin-bottom: 0.2rem; }
+
+    .json-output { opacity: 0; transition: opacity 250ms ease-out; margin-top: 0.5rem; }
+    .json-output.visible { opacity: 1; }
+
+    .json-output pre {
+      white-space: pre;
+      overflow-x: auto;
+      max-height: 480px;
+      line-height: 1.55;
+    }
+
+    .jk  { color: #8888a0; }
+    .js  { color: #e8e8ec; }
+    .jn  { color: #e8a020; }
+    .jb  { color: #4ade80; }
+    .jnl { color: #f87171; }
+    .jc  { color: #44445a; font-style: italic; }
+
+    /* ── Debug panel ─────────────────────────────────────────────────────── */
     .debug-section {
       background: var(--code-bg);
       border: 1px solid var(--border);
@@ -305,36 +460,19 @@
       justify-content: space-between;
       transition: color 0.15s;
     }
-
     .debug-toggle:hover { color: var(--text); }
 
-    .debug-content {
-      padding: 0 1.25rem 1.25rem;
-      display: none;
-    }
-
+    .debug-content { padding: 0 1.25rem 1.25rem; display: none; }
     .debug-content.open { display: block; }
 
-    .debug-grid {
-      display: grid;
-      gap: 0.4rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.73rem;
-    }
-
-    .debug-row {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 1rem;
-    }
-
+    .debug-grid { display: grid; gap: 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.73rem; }
+    .debug-row { display: grid; grid-template-columns: 140px 1fr; gap: 1rem; }
     .debug-key { color: var(--muted); }
     .debug-val { color: var(--text); word-break: break-all; }
     .debug-val-accent { color: var(--accent); word-break: break-all; }
 
-    /* ── Related ──────────────────────────────────────────────────────── */
+    /* ── Related ─────────────────────────────────────────────────────────── */
     .related-section { margin-bottom: 4rem; }
-
     .related-heading {
       font-family: 'Instrument Sans', sans-serif;
       font-size: 0.85rem;
@@ -344,14 +482,7 @@
       color: var(--muted);
       margin-bottom: 1rem;
     }
-
-    .related-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      list-style: none;
-    }
-
+    .related-list { display: flex; flex-direction: column; gap: 0.5rem; list-style: none; }
     .related-item {
       padding: 0.85rem 1rem;
       background: var(--surface-2);
@@ -359,70 +490,87 @@
       border-radius: 5px;
       transition: border-color 0.15s;
     }
-
     .related-item:hover { border-color: var(--accent); }
-
     .related-item a {
       text-decoration: none;
       color: var(--text);
-      font-family: 'Instrument Sans', sans-serif;
       font-size: 0.875rem;
       font-weight: 500;
       display: block;
     }
+    .related-item p { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.5; }
 
-    .related-item p {
-      font-family: 'Instrument Sans', sans-serif;
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-top: 0.2rem;
-      line-height: 1.5;
-    }
-
-    /* ── Footer ───────────────────────────────────────────────────────── */
+    /* ── Footer ──────────────────────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
       padding: 1.5rem 0 2rem;
-      font-family: 'Instrument Sans', sans-serif;
       font-size: 0.78rem;
       color: var(--muted);
     }
-
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { opacity: 0.75; }
 
-    /* ── Responsive ───────────────────────────────────────────────────── */
+    /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
-      .classification-bar { padding: 1rem 1.25rem; gap: 0.75rem; }
       nav { padding: 0 1.25rem; }
       .container { padding: 0 1.25rem; }
+      .terminal-body { padding: 1rem 1.25rem; }
+      .t-key { min-width: 150px; }
+      .nav-links { display: none; }
     }
   </style>
+  <script>
+    (function() {
+      var t = localStorage.getItem('theme') ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body>
 
-  <!-- Classification banner -->
-  <div class="classification-bar">
-    <span class="detected-label">Detected as</span>
-    <span class="badge badge-{{ classification.client_type }}">&#9679; {{ classification.client_type }}</span>
-    {% if classification.match_type %}
-    <span class="match-pill match-pill-{{ classification.match_type }}">{{ classification.match_type }}</span>
-    {% endif %}
-    {% if classification.ja4 %}
-    <span class="ja4-pill">JA4:&nbsp;<span class="ja4-hash">{{ classification.ja4 }}</span></span>
-    {% endif %}
-    {% if classification.detail %}
-    <span style="color: var(--muted); font-size: 0.72rem;">{{ classification.detail }}</span>
-    {% endif %}
-    {% if classification.signals %}
-    <div class="signal-chips">
-      {% for sig in classification.signals %}
-      <span class="chip">{{ sig }}</span>
-      {% endfor %}
+  <!-- ── Classification terminal banner ─────────────────────────────────── -->
+  <div class="terminal-window">
+    <div class="terminal-titlebar">
+      <div class="terminal-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="terminal-title">tls-proxy — classification output</span>
     </div>
-    {% endif %}
+    <div class="terminal-body">
+      <div class="t-line">
+        <span class="t-key">client_type</span>
+        <span class="t-val-{{ classification.client_type }}">{{ classification.client_type }}</span>
+      </div>
+      <div class="t-line">
+        <span class="t-key">ja4</span>
+        <span class="t-accent">{{ classification.ja4 or '—' }}</span>
+      </div>
+      <div class="t-line">
+        <span class="t-key">tls_library</span>
+        <span class="t-val" id="t-tls-library">—</span>
+      </div>
+      <div class="t-line">
+        <span class="t-key">alpn</span>
+        <span class="t-val" id="t-alpn">—</span>
+      </div>
+      <div class="t-line">
+        <span class="t-key">confidence</span>
+        <span class="t-val">{{ classification.confidence }}</span>
+      </div>
+      <div class="t-line">
+        <span class="t-key">routing_decision</span>
+        <span class="t-val" id="t-routing">—</span>
+      </div>
+      <div class="t-comment">
+        # This classification happened before your browser sent a single HTTP byte.<span class="cursor">█</span>
+      </div>
+    </div>
   </div>
 
+  <!-- ── Nav ────────────────────────────────────────────────────────────── -->
   <nav>
     <a href="/" class="nav-brand">connor<span>jones</span>.ca</a>
     <div class="nav-right">
@@ -432,43 +580,241 @@
         <li><a href="/debug">/debug</a></li>
         <li><a href="https://github.com/FoxIO-LLC/ja4" target="_blank" rel="noopener">JA4 spec ↗</a></li>
       </ul>
-      <button class="theme-toggle" onclick="
-        const html = document.documentElement;
-        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', next);
-        this.textContent = next === 'dark' ? 'light' : 'dark';
-      ">dark</button>
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">light</button>
     </div>
   </nav>
 
   <div class="container">
 
+    <!-- ── Article header ─────────────────────────────────────────────── -->
     <header class="article-header">
       <div class="topic-list">
-        {% for topic in article.topics %}
-        <span class="topic-tag">{{ topic }}</span>
-        {% endfor %}
+        <span class="topic-tag">tls</span>
+        <span class="topic-tag">networking</span>
+        <span class="topic-tag">ai-agents</span>
+        <span class="topic-tag">fingerprinting</span>
+        <span class="topic-tag">security</span>
       </div>
-      <h1 class="article-title">{{ article.title }}</h1>
-      <p class="article-subtitle">{{ article.subtitle }}</p>
+      <h1 class="article-title">Cloudflare published an Agent Readiness Score. I've been trying to answer a different question.</h1>
+      <p class="article-subtitle">Their tool asks if your site is configured to serve agents. Mine asks if you can identify agent traffic before it says a word.</p>
       <div class="article-meta">
         <span>Connor Jones</span>
-        <span>{{ article.reading_time_minutes }} min read</span>
-        <span>{{ article.published_at[:7] }}</span>
+        <span>8 min read</span>
+        <span>April 2026</span>
       </div>
     </header>
 
     <main>
       <article class="article-body">
-        {% for section in article.sections %}
-        <div class="section">
-          <h2 class="section-heading">{{ section.heading }}</h2>
-          <p>{{ section.body }}</p>
+
+        <!-- ── Lede ─────────────────────────────────────────────────────── -->
+        <p>Cloudflare published a post last week introducing a tool that checks whether your site is configured to work well with AI agents — an "agent readiness score." Does it have a robots.txt? Does it serve clean markdown when an agent asks for it? Does it expose an MCP server? All good signals, but every one depends on the agent or the server choosing to declare intent. The authors mention that as of February 2026, only 3 of 7 agents they tested actually request markdown by default, which left a gap big enough that they had to build a workaround for it.</p>
+
+        <p>I've been working on a different question. Instead of "is your site configured to welcome agents," I want to know: can you tell what kind of client is connecting to your site before it says anything at all? Before it sends an HTTP header. Before it identifies itself. Before it has the opportunity to tell you the truth or lie.</p>
+
+        <p>I expected to find that each AI SDK left its own mark — that traffic from an OpenAI client would look distinct from Anthropic, from LangChain, from anything else. It doesn't work that way. When I went looking, every Python AI SDK looked identical. The mark isn't left by the SDK. It's left by something lower down.</p>
+
+        <p>To explain why, I need to back up — because the thing doing the marking happens before most people think the conversation has even started.</p>
+
+        <!-- ── Section 2: The handshake ──────────────────────────────────── -->
+        <h2 class="section-heading">The handshake happens before hello</h2>
+
+        <p>When you connect to a website over HTTPS, there's a negotiation that happens before any content is exchanged. Both sides need to agree on how they're going to encrypt the connection. The client goes first.</p>
+
+        <p>That first message is called the ClientHello. It contains a list of encryption options the client supports, which extensions it understands, and what protocols it speaks. The server reads it, picks from the options, and the handshake continues from there. Only after all of that does your browser send an HTTP request.</p>
+
+        <div class="ascii-diagram"><span class="dim">Client                          Server
+  │                               │</span>
+  │──── ClientHello ─────────────▶│  <span class="hl">← fingerprint lives here</span>
+  <span class="dim">│◀─── ServerHello ──────────────│
+  │◀─── Certificate ──────────────│
+  │    ... handshake continues... │
+  │──── Finished ────────────────▶│
+  │◀─── Finished ─────────────────│
+  │                               │</span>
+  │──── GET / HTTP/1.1 ──────────▶│  <span class="dim">← application layer starts here</span></div>
+
+        <p>The contents of that ClientHello are controlled by the TLS library the client was compiled against — not the application running on top of it. A Python script using the Anthropic SDK and a Python script using the OpenAI SDK both go through the same underlying TLS library. They look identical at this layer. A Go program uses Go's own TLS implementation, which looks different from anything Python ships. curl on macOS links against LibreSSL; curl on Linux links against OpenSSL. Same tool, different library, different fingerprint.</p>
+
+        <p>JA4 is a hashing scheme that turns the contents of a ClientHello into a short, comparable string. That's the fingerprint. One more thing worth knowing: Chrome deliberately inserts random reserved values into its ClientHello — a mechanism called GREASE — to prevent servers from rejecting connections that contain unknown extensions. The presence of those values is itself a reliable signal. Nothing except a Chromium-family browser sends them.</p>
+
+        <blockquote class="callout">
+          "User-Agent strings are voluntary. GREASE values are not."
+        </blockquote>
+
+        <!-- ── Section 3: The catalogue ──────────────────────────────────── -->
+        <h2 class="section-heading">What the catalogue actually shows</h2>
+
+        <p>All Python AI SDKs — OpenAI, Anthropic, LangChain — produce the same fingerprint on the same machine. Not similar. Identical. The SDK doesn't control the TLS handshake; the language does, specifically the TLS library it's built on. So what looks like "Anthropic SDK traffic" from a fingerprinting perspective is just Python traffic. The vendor is invisible at this layer.</p>
+
+        <p>What you can see is what's underneath the tool. The table below shows clients captured across Linux and macOS. The Signal column is the one that matters.</p>
+
+        <div class="table-wrapper">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>Runtime</th>
+                <th>TLS Library</th>
+                <th>Ciphers</th>
+                <th>Extensions</th>
+                <th>ALPN</th>
+                <th>Max TLS</th>
+                <th>Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Chromium 145</td>
+                <td class="muted">BoringSSL</td>
+                <td>15</td>
+                <td>16</td>
+                <td>h2</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-ok">✓ Unambiguous</span></td>
+              </tr>
+              <tr>
+                <td>Go net/http</td>
+                <td class="muted">crypto/tls</td>
+                <td>13</td>
+                <td>11</td>
+                <td>none</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-ok">✓ Unambiguous</span></td>
+              </tr>
+              <tr>
+                <td>Python (requests / httpx)</td>
+                <td class="muted">OpenSSL/3.0.x</td>
+                <td>40+</td>
+                <td>9–12</td>
+                <td>none</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-ok">✓ All AI SDKs</span></td>
+              </tr>
+              <tr>
+                <td>Node (fetch)</td>
+                <td class="muted">OpenSSL/3.0.13</td>
+                <td>59</td>
+                <td>11</td>
+                <td>h1</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-ok">✓ Within Node</span></td>
+              </tr>
+              <tr>
+                <td>Node (axios)</td>
+                <td class="muted">OpenSSL/3.0.13</td>
+                <td>59</td>
+                <td>10</td>
+                <td>none</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-ok">✓ Within Node</span></td>
+              </tr>
+              <tr>
+                <td>Rust/Linux (reqwest)</td>
+                <td class="muted">rustls 1.94.1</td>
+                <td>31</td>
+                <td>11</td>
+                <td>none</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-warn">~ Overlaps curl/Linux</span></td>
+              </tr>
+              <tr>
+                <td>curl/Linux 8.5</td>
+                <td class="muted">OpenSSL/3.0.13</td>
+                <td>31</td>
+                <td>12</td>
+                <td>h2</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-warn">~ Overlaps Rust/Linux</span></td>
+              </tr>
+              <tr>
+                <td>curl/macOS 8.7</td>
+                <td class="muted">LibreSSL/3.3.6</td>
+                <td>49</td>
+                <td>7</td>
+                <td>h2</td>
+                <td>1.3</td>
+                <td><span class="sig-badge sig-ok">✓ From curl/Linux</span></td>
+              </tr>
+              <tr>
+                <td>Rust/macOS (reqwest)</td>
+                <td class="muted">rustls 1.89.0</td>
+                <td>22</td>
+                <td>7</td>
+                <td>none</td>
+                <td>1.2</td>
+                <td><span class="sig-badge sig-bad">⚠ TLS 1.2 only</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        {% endfor %}
+
+        <p>Two findings worth calling out. Go's TLS implementation is entirely its own — not OpenSSL, not BoringSSL — and nothing else in the catalogue resembles it. Unambiguous from the first packet. The other is curl: same tool, different operating system, completely different profile. A detection rule written for curl as a single fingerprint is missing half the traffic. The overlap between Rust and curl on Linux is real and worth naming — both link against OpenSSL, so they share cipher suite characteristics. In practice, ALPN presence is usually enough to separate them, but it's a reminder that this is probabilistic, not deterministic.</p>
+
+        <p>That same honesty applies to the agent/tool split you'll see on the <a href="/stats">/stats</a> page. The classifier labels some traffic as "agent" (a Python HTTP client) and some as "tool" (curl). The actual basis for that distinction is one number: how many TLS extensions the client sends. curl typically sends 7 or 8. Python's HTTP library typically sends 9 to 12. That's the entire signal. There's no deeper fingerprint here — if someone ran curl with a few extra flags, or a Python script configured to be unusually minimal, the classifier would get it wrong. It's a reasonable default assumption, not a reliable identification.</p>
+
+        <blockquote class="callout callout-warn">
+          The weakest boundary in the classifier is <em>agent</em> vs <em>tool</em>. Both curl and Python's requests use OpenSSL with similar cipher lists. The only signal is extension count: curl sends ≤8, Python's ssl module sends 9–12. One threshold. A curl invocation with extra flags or a minimal Python client configured without extras would cross it in the wrong direction. For fingerprints not in the catalogue, this is a heuristic guess — not a classification.
+        </blockquote>
+
+        <p>For fingerprints in the catalogue, the classification is an exact match. For everything else, it falls back to heuristics like these — and the gaps surface. The <a href="/stats">/stats</a> page has a section that flags fingerprints seen repeatedly that the catalogue couldn't match exactly. Those are the ones worth capturing next.</p>
+
+        <!-- ── Section 4: The live demo ───────────────────────────────────── -->
+        <h2 class="section-heading">This site serves agents differently</h2>
+
+        <p>The terminal at the top of this page wasn't a mockup. When you loaded this article, a proxy sitting in front of the server classified your connection before the TLS handshake was complete — and routed you to a different backend based on what it found. If you're reading this in a browser, you got HTML. If you arrived via a Python HTTP client, a Go program, or curl, you got JSON.</p>
+
+        <p>Here's how that works.</p>
+
+        <div class="ascii-diagram"><span class="dim">visitor (TLS)
+      │
+      ▼</span>
+<span class="ok">┌─────────────────┐</span>
+<span class="ok">│   TLS proxy     │</span>  <span class="hl">← MSG_PEEK: reads ClientHello without consuming</span>
+<span class="ok">│                 │</span>  <span class="dim">← computes JA4, classifies client</span>
+<span class="ok">│                 │</span>  <span class="dim">← completes TLS handshake (same bytes)</span>
+<span class="ok">│                 │</span>  <span class="dim">← reads decrypted HTTP, injects X-Client-* headers</span>
+<span class="ok">└────────┬────────┘</span>
+<span class="dim">         │ plain HTTP (internal network)
+         ▼
+┌─────────────────┐
+│ routing decision│
+└──┬──────────┬───┘
+   │          │
+   ▼          ▼</span>
+<span class="ok">browser</span>     <span class="hl">agent</span>
+<span class="dim"> HTML        JSON</span></div>
+
+        <p>Before the TLS handshake begins, a client sends a ClientHello — a plaintext packet that includes the cipher suites and extensions it supports. The proxy reads this packet using MSG_PEEK, a socket operation that copies bytes from the kernel buffer without consuming them. That's enough to compute the JA4 fingerprint and classify the client. The bytes then remain in the buffer, and the proxy proceeds with a normal TLS handshake — from the client's perspective, nothing unusual happened.</p>
+
+        <p>From there it's a standard terminating proxy. The proxy holds the TLS session, reads the decrypted HTTP request, injects classification headers, and forwards plain HTTP to the appropriate backend on the internal network. The classification — <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-Type</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-JA4</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-Confidence</code> — arrives at the backend before a single line of application code runs.</p>
+
+        <p>The result is two separate backends: one that returns HTML for browsers, and one that returns structured JSON for everything else. Simulate what an agent receives by clicking below — the response is exactly what a Python HTTP client or curl would get when hitting this endpoint.</p>
+
+        <!-- Interactive JSON terminal -->
+        <div class="json-terminal-outer">
+          <div class="json-terminal-titlebar">
+            <span class="json-terminal-title">shell — simulate agent request</span>
+            <button class="curl-btn" id="curl-btn" onclick="runCurlDemo()">→ Send curl request</button>
+          </div>
+          <div class="json-terminal-body" id="json-terminal-body">
+            <div class="resp-line" style="color:#44445a;">Click the button to simulate a curl request to this endpoint.</div>
+          </div>
+        </div>
+
+        <p>The <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">agent_meta</code> block at the bottom is worth reading. It tells the client exactly what was detected, at what layer, and why it received JSON instead of HTML. <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">detection_layer: "network"</code> isn't rhetorical — the routing decision was made from five fields in a TLS packet, before any HTTP was exchanged.</p>
+
+        <!-- ── Section 5: Two layers ──────────────────────────────────────── -->
+        <h2 class="section-heading">Two layers, two different problems</h2>
+
+        <p>The two layers aren't competing approaches — they answer different questions. The application layer tells you whether your site is configured to serve agents. The TLS layer tells you what's actually connecting, regardless of what it claims. Neither is sufficient on its own. TLS identity without good application-layer serving is just a label. Application-layer readiness without identity is infrastructure that requires agents to opt in before it works.</p>
+
+        <p>There's a practical constraint worth naming if you're thinking about building something like this. Cloudflare Tunnel terminates TLS at Cloudflare's edge before the request reaches your origin — which means the ClientHello never arrives at your server. You can't fingerprint what you never see. Running classification at the TLS layer requires sitting before that termination point: either at the origin itself, or at a layer in your stack that receives the raw connection. That's an architectural decision you have to make up front.</p>
+
+        <p>What you get if you do is routing logic that doesn't require any application changes. The backend doesn't need to know how the classification works — it just reads a header. You can serve structured data to agents, rate-limit by client class, or log runtime version drift in your traffic patterns, all without touching application code. The proxy handles it before HTTP begins.</p>
+
       </article>
 
-      <!-- Request classification details -->
+      <!-- ── Request classification details ─────────────────────────────── -->
       <div class="debug-section">
         <button class="debug-toggle" onclick="this.nextElementSibling.classList.toggle('open')">
           <span>Request classification details</span>
@@ -504,6 +850,7 @@
         </div>
       </div>
 
+      <!-- ── Related ─────────────────────────────────────────────────────── -->
       <section class="related-section">
         <h3 class="related-heading">Further reading</h3>
         <ul class="related-list">
@@ -521,7 +868,192 @@
       <p>This page was served by a TLS fingerprinting proxy. Agents that hit this endpoint receive <a href="/debug">structured JSON</a> instead. Built with <a href="https://github.com/FoxIO-LLC/ja4" target="_blank" rel="noopener">JA4</a>.</p>
     </footer>
 
-  </div>
+  </div><!-- /container -->
+
+  <script>
+    // ── Theme ───────────────────────────────────────────────────────────────
+    function toggleTheme() {
+      const html = document.documentElement;
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      document.getElementById('theme-btn').textContent = next === 'dark' ? 'light' : 'dark';
+    }
+
+    document.getElementById('theme-btn').textContent =
+      document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+
+    // ── Terminal banner population ──────────────────────────────────────────
+    (function() {
+      const clientType = "{{ classification.client_type }}";
+      const detail = "{{ classification.detail or '' }}";
+      const ja4 = "{{ classification.ja4 or '' }}";
+
+      // Derive TLS library from client_type + detail
+      function tlsLibrary(type, detail) {
+        const d = detail.toLowerCase();
+        if (type === 'browser') {
+          if (d.includes('chrom') || d.includes('edge'))  return 'BoringSSL';
+          if (d.includes('firefox'))                       return 'NSS (Mozilla)';
+          if (d.includes('safari') || d.includes('webkit'))return 'Apple TLS';
+          return 'unknown';
+        }
+        if (d.includes('go') || d.includes('golang'))   return 'crypto/tls (Go)';
+        if (d.includes('rust') || d.includes('reqwest'))return 'rustls';
+        if (d.includes('curl') && d.includes('libressl'))return 'LibreSSL';
+        if (d.includes('curl') || d.includes('python') || d.includes('openssl'))return 'OpenSSL';
+        if (detail) return detail;
+        return 'unknown';
+      }
+
+      // Parse ALPN from JA4 Part A (chars 8-9 of first segment)
+      function alpnFromJA4(ja4) {
+        if (!ja4) return '—';
+        const partA = ja4.split('_')[0];
+        if (!partA || partA.length < 10) return '—';
+        const alpn = partA.slice(8, 10);
+        return alpn === '00' ? 'none' : alpn;
+      }
+
+      // Routing decision
+      const routing = (clientType === 'browser') ? 'serve_html' : 'serve_json';
+
+      document.getElementById('t-tls-library').textContent = tlsLibrary(clientType, detail);
+      document.getElementById('t-alpn').textContent = alpnFromJA4(ja4);
+      document.getElementById('t-routing').textContent = routing;
+    })();
+
+    // ── JSON terminal simulation ────────────────────────────────────────────
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function fmtJSON(val, depth) {
+      depth = depth || 0;
+      const pad  = '  '.repeat(depth);
+      const ipad = '  '.repeat(depth + 1);
+
+      if (val === undefined)         return '<span class="jnl">undefined</span>';
+      if (val === null)             return '<span class="jnl">null</span>';
+      if (typeof val === 'boolean') return '<span class="jb">' + val + '</span>';
+      if (typeof val === 'number')  return '<span class="jn">' + val + '</span>';
+      if (typeof val === 'string')  return '<span class="js">"' + escHtml(val) + '"</span>';
+
+      if (Array.isArray(val)) {
+        if (val.length === 0) return '[]';
+        var items = val.map(function(v) { return ipad + fmtJSON(v, depth + 1); });
+        return '[\n' + items.join(',\n') + '\n' + pad + ']';
+      }
+
+      var keys = Object.keys(val);
+      if (keys.length === 0) return '{}';
+      var entries = keys.map(function(k) {
+        return ipad + '<span class="jk">"' + k + '"</span>: ' + fmtJSON(val[k], depth + 1);
+      });
+      return '{\n' + entries.join(',\n') + '\n' + pad + '}';
+    }
+
+    var SAMPLE_RESPONSE = {
+      "type": "article",
+      "id": "tls-fingerprinting-and-the-agentic-web",
+      "title": "Cloudflare published an Agent Readiness Score. I've been trying to answer a different question.",
+      "canonical_url": "https://connorjones.ca/writing/tls-fingerprinting",
+      "metadata": {
+        "author": "Connor Jones",
+        "published_at": "2026-04-22T00:00:00Z",
+        "topics": ["tls", "networking", "ai-agents", "fingerprinting", "security"],
+        "reading_time_minutes": 8,
+        "word_count": 1842,
+        "retrieved_at": "2026-04-22T14:23:11.847Z"
+      },
+      "content": {
+        "sections": [
+          { "heading": "The handshake happens before hello", "body": "..." },
+          { "heading": "What the catalogue actually shows",  "body": "..." },
+          { "heading": "This site serves agents differently","body": "..." },
+          { "heading": "Two layers, two different problems", "body": "..." }
+        ]
+      },
+      "actions": [
+        {
+          "id": "view_debug",
+          "type": "fetch",
+          "description": "Retrieve raw request headers and classification details",
+          "url": "https://connorjones.ca/debug",
+          "method": "GET",
+          "returns": "application/json"
+        },
+        {
+          "id": "view_human",
+          "type": "fetch",
+          "description": "Retrieve the human-readable HTML version of this article",
+          "url": "https://connorjones.ca/writing/tls-fingerprinting",
+          "method": "GET",
+          "headers": { "Accept": "text/html" },
+          "returns": "text/html",
+          "note": "Override content negotiation by sending Accept: text/html"
+        }
+      ],
+      "agent_meta": {
+        "detection_method": "tls_fingerprinting",
+        "detection_layer": "network",
+        "ja4_fingerprint": "t13d4011h2_8daaf6152771_e6bebebd2b82",
+        "client_type": "agent",
+        "classification_detail": "Python/OpenSSL",
+        "confidence": "high",
+        "signals": ["permissive_ciphers", "catalogue_match"],
+        "note": "You were identified as a non-browser client via TLS fingerprinting of your ClientHello message. This JSON response was generated because your client_type is not 'browser'. No HTTP request data was inspected to make this classification.",
+        "capabilities": {
+          "can_store": true,
+          "can_index": true,
+          "can_reproduce": true,
+          "attribution_required": false
+        }
+      }
+    };
+
+    function runCurlDemo() {
+      var btn  = document.getElementById('curl-btn');
+      var body = document.getElementById('json-terminal-body');
+
+      btn.disabled = true;
+      btn.textContent = '...';
+
+      body.innerHTML = '<div class="cmd-line">$ curl -s https://connorjones.ca/writing/tls-fingerprinting</div>';
+
+      setTimeout(function() {
+        body.insertAdjacentHTML('beforeend', '<div class="resp-line">← Connecting...</div>');
+      }, 280);
+
+      setTimeout(function() {
+        body.insertAdjacentHTML('beforeend', '<div class="resp-line" style="color:#4ade80">← HTTP/2 200</div><div class="resp-line">← content-type: application/json</div>');
+      }, 680);
+
+      setTimeout(function() {
+        var outputDiv = document.createElement('div');
+        outputDiv.className = 'json-output';
+        var pre = document.createElement('pre');
+        pre.innerHTML = fmtJSON(SAMPLE_RESPONSE, 0);
+        outputDiv.appendChild(pre);
+        body.appendChild(outputDiv);
+
+        requestAnimationFrame(function() {
+          outputDiv.classList.add('visible');
+        });
+
+        btn.textContent = '↺ Reset';
+        btn.disabled = false;
+        btn.onclick = function() {
+          body.innerHTML = '<div class="resp-line" style="color:#44445a;">Click the button to simulate a curl request to this endpoint.</div>';
+          btn.textContent = '→ Send curl request';
+          btn.onclick = runCurlDemo;
+        };
+      }, 1050);
+    }
+  </script>
 
 </body>
 </html>
