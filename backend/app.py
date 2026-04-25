@@ -132,10 +132,10 @@ ARTICLE = {
 
 POSTS = [
     {
-        "title": "What Your TLS Handshake Reveals About You",
+        "title": "Can You Identify an Agent Before It Speaks?",
         "url": "/writing/tls-fingerprinting",
-        "date_display": "Jan 2025",
-        "reading_time_minutes": 4,
+        "date_display": "Apr 2026",
+        "reading_time_minutes": 8,
     },
 ]
 

@@ -595,7 +595,7 @@
         <span class="topic-tag">fingerprinting</span>
         <span class="topic-tag">security</span>
       </div>
-      <h1 class="article-title">Cloudflare published an Agent Readiness Score. I've been trying to answer a different question.</h1>
+      <h1 class="article-title">Can You Identify an Agent Before It Speaks?</h1>
       <p class="article-subtitle">Their tool asks if your site is configured to serve agents. Mine asks if you can identify agent traffic before it says a word.</p>
       <div class="article-meta">
         <span>Connor Jones</span>
@@ -608,18 +608,53 @@
       <article class="article-body">
 
         <!-- ── Lede ─────────────────────────────────────────────────────── -->
+        <!--
+          EDITORIAL GAP 1: The lede needs credit before the critique.
+
+          The current acknowledgment ("all good signals") is distributed across a
+          list and a phrase, which reads as setup for dismissal rather than genuine
+          credit. What Cloudflare's approach genuinely does well is give site
+          operators a checklist of configuration choices they control: robots.txt,
+          markdown serving, MCP exposure. That is real utility. The limitation
+          follows from it: the checklist only audits the operator's side of the
+          conversation, not the client's.
+
+          Needed: one sentence near the top of this paragraph that names the specific
+          value of Cloudflare's approach as a tool for operators, before the
+          limitation is introduced. The acknowledgment should set up why the
+          limitation matters, not just be checklist noise before the pivot. Right
+          now the critique arrives before the reader has been given a reason to care
+          about what is being critiqued.
+
+          EXAMPLE IMPLEMENTATION:
+
+          Replace the opening of the first paragraph with something like:
+
+          "Cloudflare published a post last week introducing a tool that checks
+          whether your site is configured to work well with AI agents. The tool is
+          genuinely useful to an operator preparing a site for agent traffic: it
+          audits configuration choices on their side of the conversation — robots.txt,
+          markdown serving, MCP endpoint exposure. What it cannot audit is the client.
+          The checklist only tells you whether you are ready to receive agents that
+          cooperate. The authors mention that as of February 2026, only 3 of 7 agents
+          they tested actually request markdown by default, which is the first sign
+          that cooperation is not guaranteed."
+
+          The structure: name the tool and what it genuinely does (operator-side
+          audit), then introduce the limit as a consequence of that scope (not as a
+          rebuttal). "What it cannot audit is the client" earns the critique because
+          the reader already understands the value being bounded.
+        -->
         <p>Cloudflare published a post last week introducing a tool that checks whether your site is configured to work well with AI agents — an "agent readiness score." Does it have a robots.txt? Does it serve clean markdown when an agent asks for it? Does it expose an MCP server? All good signals, but every one depends on the agent or the server choosing to declare intent. The authors mention that as of February 2026, only 3 of 7 agents they tested actually request markdown by default, which left a gap big enough that they had to build a workaround for it.</p>
 
         <p>I've been working on a different question. Instead of "is your site configured to welcome agents," I want to know: can you tell what kind of client is connecting to your site before it says anything at all? Before it sends an HTTP header. Before it identifies itself. Before it has the opportunity to tell you the truth or lie.</p>
 
-        <p>I expected to find that each AI SDK left its own mark — that traffic from an OpenAI client would look distinct from Anthropic, from LangChain, from anything else. It doesn't work that way. When I went looking, every Python AI SDK looked identical. The mark isn't left by the SDK. It's left by something lower down.</p>
-
-        <p>To explain why, I need to back up — because the thing doing the marking happens before most people think the conversation has even started.</p>
+        <p>I expected to find that each AI SDK left its own mark — that traffic from an OpenAI client would look distinct from Anthropic, from LangChain, from anything else. It doesn't work that way. When I went looking, every Python AI SDK looked identical. The mark isn't left by the SDK. It's left by underlying runtime.</p>
 
         <!-- ── Section 2: The handshake ──────────────────────────────────── -->
-        <h2 class="section-heading">The handshake happens before hello</h2>
+        <h2 class="section-heading">The Handshake</h2>
 
-        <p>When you connect to a website over HTTPS, there's a negotiation that happens before any content is exchanged. Both sides need to agree on how they're going to encrypt the connection. The client goes first.</p>
+        <p>When you connect to a website over HTTPS, there's a negotiation that happens before any content is exchanged. Both sides need to agree on how they're going to encrypt the connection, and the client always goes first.</p>
 
         <p>That first message is called the ClientHello. It contains a list of encryption options the client supports, which extensions it understands, and what protocols it speaks. The server reads it, picks from the options, and the handshake continues from there. Only after all of that does your browser send an HTTP request.</p>
 
@@ -634,20 +669,132 @@
   │                               │</span>
   │──── GET / HTTP/1.1 ──────────▶│  <span class="dim">← application layer starts here</span></div>
 
-        <p>The contents of that ClientHello are controlled by the TLS library the client was compiled against — not the application running on top of it. A Python script using the Anthropic SDK and a Python script using the OpenAI SDK both go through the same underlying TLS library. They look identical at this layer. A Go program uses Go's own TLS implementation, which looks different from anything Python ships. curl on macOS links against LibreSSL; curl on Linux links against OpenSSL. Same tool, different library, different fingerprint.</p>
+        <p>The contents of that ClientHello are controlled by the TLS library the client runtime was compiled against — not the application running on top of it. A Python script using the Anthropic SDK and a Python script using the OpenAI SDK both go through the same underlying TLS library. They look identical at this layer. A Go program uses Go's own TLS implementation, which looks different from anything Python ships. curl on macOS looks different than curl on Linux. Same tool, different library, different fingerprint.</p>
 
-        <p>JA4 is a hashing scheme that turns the contents of a ClientHello into a short, comparable string. That's the fingerprint. One more thing worth knowing: Chrome deliberately inserts random reserved values into its ClientHello — a mechanism called GREASE — to prevent servers from rejecting connections that contain unknown extensions. The presence of those values is itself a reliable signal. Nothing except a Chromium-family browser sends them.</p>
+        <p>To compare ClientHellos across clients, the field values get hashed into a string — that's the fingerprint. Every library produces a consistent pattern, and Chrome's is especially recognizable: it adds extra values to its ClientHello that no other client sends, making it immediately identifiable.</p>
 
         <blockquote class="callout">
-          "User-Agent strings are voluntary. GREASE values are not."
+          "The SDK you chose doesn't appear in the fingerprint. The language runtime does."
         </blockquote>
 
-        <!-- ── Section 3: The catalogue ──────────────────────────────────── -->
-        <h2 class="section-heading">What the catalogue actually shows</h2>
+        <!--
+          EDITORIAL GAP 2: Demo moved before the catalogue.
 
-        <p>All Python AI SDKs — OpenAI, Anthropic, LangChain — produce the same fingerprint on the same machine. Not similar. Identical. The SDK doesn't control the TLS handshake; the language does, specifically the TLS library it's built on. So what looks like "Anthropic SDK traffic" from a fingerprinting perspective is just Python traffic. The vendor is invisible at this layer.</p>
+          Rationale: The reader already watched the terminal banner classify their
+          connection at the top of this page before reading a word. This section
+          closes that loop while the question is still live. The catalogue then
+          functions as interrogation: here is what that routing decision is actually
+          based on, and it is more constrained than the routing implies.
 
-        <p>What you can see is what's underneath the tool. The table below shows clients captured across Linux and macOS. The Signal column is the one that matters.</p>
+          With the demo first, the catalogue becomes a complication rather than a
+          foundation. The "coarser than expected" finding (Gap 3) lands against
+          something the reader experienced, not against an abstraction.
+
+          EXAMPLE IMPLEMENTATION:
+
+          The section order should be: The Handshake → This site serves agents
+          differently → The Catalogue. No other structural changes needed.
+
+          The handshake section closes on the general principle ("the SDK doesn't
+          appear in the fingerprint; the library does"). The demo section then says:
+          here is that principle in operation, against your connection specifically.
+          The catalogue then interrogates what that operation is actually based on.
+
+          The demo section's opening paragraph can remain close to what it is.
+          The key edit is removing any framing that positions the demo as an
+          illustration of a concept already explained — it should read as a
+          revelation of what already happened, not a worked example:
+
+          "The terminal at the top of this page classified your connection before
+          this paragraph loaded. A proxy sitting in front of this server read your
+          ClientHello, computed a JA4 fingerprint, and made a routing decision
+          before TLS finished. If you are reading this in a browser, you received
+          HTML. If you arrived via a Python HTTP client, a Go program, or curl,
+          you received JSON. Here is how that routing decision was made."
+
+          That framing turns the demo section into a payoff, not a pedagogy.
+        -->
+
+        <!-- ── Section 3: This site serves agents differently ────────────── -->
+        <h2 class="section-heading">This site serves agents differently</h2>
+
+        <p>The terminal at the top of this page wasn't a mockup. When you loaded this article, a proxy sitting in front of the server classified your connection before the TLS handshake was complete — and routed you to a different backend based on what it found. If you're reading this in a browser, you got HTML. If you arrived via a Python HTTP client, a Go program, or curl, you got JSON.</p>
+
+        <p>Here's how that works.</p>
+
+        <div class="ascii-diagram"><span class="dim">visitor (TLS)
+      │
+      ▼</span>
+<span class="ok">┌─────────────────┐</span>
+<span class="ok">│   TLS proxy     │</span>  <span class="hl">← MSG_PEEK: reads ClientHello without consuming</span>
+<span class="ok">│                 │</span>  <span class="dim">← computes JA4, classifies client</span>
+<span class="ok">│                 │</span>  <span class="dim">← completes TLS handshake (same bytes)</span>
+<span class="ok">│                 │</span>  <span class="dim">← reads decrypted HTTP, injects X-Client-* headers</span>
+<span class="ok">└────────┬────────┘</span>
+<span class="dim">         │ plain HTTP (internal network)
+         ▼
+┌─────────────────┐
+│ routing decision│
+└──┬──────────┬───┘
+   │          │
+   ▼          ▼</span>
+<span class="ok">browser</span>     <span class="hl">agent</span>
+<span class="dim"> HTML        JSON</span></div>
+
+        <p>Before the TLS handshake begins, a client sends a ClientHello — a plaintext packet that includes the cipher suites and extensions it supports. The proxy reads this packet using MSG_PEEK, a socket operation that copies bytes from the kernel buffer without consuming them. That's enough to compute the JA4 fingerprint and classify the client. The bytes then remain in the buffer, and the proxy proceeds with a normal TLS handshake — from the client's perspective, nothing unusual happened.</p>
+
+        <p>From there it's a standard terminating proxy. The proxy holds the TLS session, reads the decrypted HTTP request, injects classification headers, and forwards plain HTTP to the appropriate backend on the internal network. The classification — <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-Type</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-JA4</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-Confidence</code> — arrives at the backend before a single line of application code runs.</p>
+
+        <p>The result is two separate backends: one that returns HTML for browsers, and one that returns structured JSON for everything else. Simulate what an agent receives by clicking below — the response is exactly what a Python HTTP client or curl would get when hitting this endpoint.</p>
+
+        <!-- Interactive JSON terminal -->
+        <div class="json-terminal-outer">
+          <div class="json-terminal-titlebar">
+            <span class="json-terminal-title">shell — simulate agent request</span>
+            <button class="curl-btn" id="curl-btn" onclick="runCurlDemo()">→ Send curl request</button>
+          </div>
+          <div class="json-terminal-body" id="json-terminal-body">
+            <div class="resp-line" style="color:#44445a;">Click the button to simulate a curl request to this endpoint.</div>
+          </div>
+        </div>
+
+        <p>The <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">agent_meta</code> block at the bottom is worth reading. It tells the client exactly what was detected, at what layer, and why it received JSON instead of HTML. <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">detection_layer: "network"</code> isn't rhetorical — the routing decision was made from five fields in a TLS packet, before any HTTP was exchanged.</p>
+
+        <!--
+          EDITORIAL GAP 2 (transition): Demo to catalogue.
+
+          The demo section should close on what "sufficient" looks like in practice.
+          The catalogue's opening should then frame itself as an examination of the
+          data behind that sufficiency claim.
+
+          Concept to carry across: the classification is coarse, but coarse is enough
+          for routing. The catalogue examines how coarse, and where the limits are.
+          The reader just saw the routing decision; now they learn what it is
+          actually based on.
+
+          EXAMPLE IMPLEMENTATION:
+
+          Close the demo section (after the agent_meta paragraph) with:
+
+          "For the common agent runtimes, that fingerprint is sufficient for routing.
+          What it means to be sufficient is worth being precise about."
+
+          Open the catalogue section with:
+
+          "To map what 'sufficient' actually covers, I ran the same HTTPS request
+          from a range of common runtimes on both Linux and macOS, capturing the
+          ClientHello from each. The table below shows what those fingerprints look
+          like. The Signal column is the thing to interrogate."
+
+          This carries the reader across sections with a felt question (what does
+          sufficient mean?) that the catalogue answers, rather than a cold pivot
+          from "here is a demo" to "here is a table."
+        -->
+
+        <!-- ── Section 4: The catalogue ──────────────────────────────────── -->
+        <h2 class="section-heading">The Catalogue</h2>
+
+        <p>To build the catalogue, I ran the same HTTPS request from a range of common runtimes — Python, Go, Rust, curl — on both Linux and macOS, capturing the ClientHello from each. The table below shows what those fingerprints look like. The Signal column is what matters.</p>
 
         <div class="table-wrapper">
           <table class="compare-table">
@@ -748,61 +895,113 @@
           </table>
         </div>
 
-        <p>Two findings worth calling out. Go's TLS implementation is entirely its own — not OpenSSL, not BoringSSL — and nothing else in the catalogue resembles it. Unambiguous from the first packet. The other is curl: same tool, different operating system, completely different profile. A detection rule written for curl as a single fingerprint is missing half the traffic. The overlap between Rust and curl on Linux is real and worth naming — both link against OpenSSL, so they share cipher suite characteristics. In practice, ALPN presence is usually enough to separate them, but it's a reminder that this is probabilistic, not deterministic.</p>
+        <p>Go's TLS stack is entirely its own — not OpenSSL, not BoringSSL — and nothing else in the catalogue resembles it. curl on macOS and curl on Linux produce completely different fingerprints; treating curl as a single identity would miss half the traffic.</p>
 
-        <p>That same honesty applies to the agent/tool split you'll see on the <a href="/stats">/stats</a> page. The classifier labels some traffic as "agent" (a Python HTTP client) and some as "tool" (curl). The actual basis for that distinction is one number: how many TLS extensions the client sends. curl typically sends 7 or 8. Python's HTTP library typically sends 9 to 12. That's the entire signal. There's no deeper fingerprint here — if someone ran curl with a few extra flags, or a Python script configured to be unusually minimal, the classifier would get it wrong. It's a reasonable default assumption, not a reliable identification.</p>
+        <!--
+          EDITORIAL GAP 3: "Coarser than expected" needs its own beat.
+
+          The paragraph below collapses two things that should be separate: (1) a
+          data observation about how the agent/tool split is derived, and (2) the
+          broader finding that classification above the library level is inference.
+
+          The fix, without adding a new section heading: split this paragraph in two.
+
+          First paragraph: close the data claims. What the catalogue can read, where
+          the matches are exact. The extension-count sentence belongs here as a data
+          observation, ending on "That's the entire basis for the classification."
+
+          Second paragraph: begin from the negative. Here is what none of this data
+          shows. The sentence "This is a fundamental constraint of working at the
+          transport layer" should open this paragraph, not appear mid-sentence after
+          the extension count detail. Develop the library-not-application observation
+          as its own complete thought. The callout then follows as punctuation on
+          that argument, not as a footnote appended to a sentence about extensions.
+
+          EXAMPLE IMPLEMENTATION:
+
+          Replace the current single paragraph with two paragraphs:
+
+          Paragraph 1:
+          "The agent/tool split on the /stats page rests on a single number: how
+          many TLS extensions the client sends. curl typically sends 7 or 8; Python's
+          HTTP library typically sends 9 to 12. For every client in the catalogue,
+          the match is exact and the extension-count range is consistent across every
+          capture. That range is the entire basis for the classification."
+
+          Paragraph 2:
+          "What none of this data shows is the application. TLS fingerprinting
+          identifies the library that made the connection, not what is running on
+          top of it. The SDK, the tool name, the user, the intent — none of that is
+          present at the transport layer. For clients in the catalogue, the library
+          match is a reliable proxy for client class. For everything outside the
+          catalogue, the classification is a reasonable inference, not an
+          identification."
+
+          The callout then follows as punctuation on the second paragraph's argument.
+          This structure makes the constraint land as its own finding rather than as
+          a qualification buried inside the data paragraph.
+        -->
+        <p>The agent/tool split on the <a href="/stats">/stats</a> page deserves more scrutiny than it might appear to warrant. Even though the classifier labels traffic as "agent" or "tool," that distinction rests on a single number: how many TLS extensions the client sends. curl typically sends 7 or 8; Python's HTTP library typically sends 9 to 12. That's the entire basis for the classification. This is a fundamental constraint of working at the transport layer — TLS fingerprinting can tell you which library made the connection, but nothing above it. The application, the SDK, the intent are all invisible from here. For clients in the catalogue, the match is exact. For everything else, it's a reasonable guess, not an identification.</p>
 
         <blockquote class="callout callout-warn">
-          The weakest boundary in the classifier is <em>agent</em> vs <em>tool</em>. Both curl and Python's requests use OpenSSL with similar cipher lists. The only signal is extension count: curl sends ≤8, Python's ssl module sends 9–12. One threshold. A curl invocation with extra flags or a minimal Python client configured without extras would cross it in the wrong direction. For fingerprints not in the catalogue, this is a heuristic guess — not a classification.
+          The fingerprint belongs to the library, not the application. Which SDK, which tool, which intent — none of that is visible at the transport layer. Classification above the library level is inference.
         </blockquote>
 
-        <p>For fingerprints in the catalogue, the classification is an exact match. For everything else, it falls back to heuristics like these — and the gaps surface. The <a href="/stats">/stats</a> page has a section that flags fingerprints seen repeatedly that the catalogue couldn't match exactly. Those are the ones worth capturing next.</p>
+        <p>The gaps surface too. The <a href="/stats">/stats</a> page flags fingerprints seen repeatedly that the catalogue couldn't match exactly — those are the ones worth capturing next.</p>
 
-        <!-- ── Section 4: The live demo ───────────────────────────────────── -->
-        <h2 class="section-heading">This site serves agents differently</h2>
+        <!--
+          EDITORIAL GAP 4: Section 5 needs to build toward the Cloudflare payoff.
 
-        <p>The terminal at the top of this page wasn't a mockup. When you loaded this article, a proxy sitting in front of the server classified your connection before the TLS handshake was complete — and routed you to a different backend based on what it found. If you're reading this in a browser, you got HTML. If you arrived via a Python HTTP client, a Go program, or curl, you got JSON.</p>
+          The section currently describes the two layers but does not argue for
+          combining them. The Cloudflare Tunnel paragraph is framed as a practical
+          obstacle for readers building something similar. Reframe it: Cloudflare,
+          at their edge, receives every ClientHello from every connection. They
+          already compute JA4 fingerprints there; this is the basis of their bot
+          management product.
 
-        <p>Here's how that works.</p>
+          The argument that follows: Cloudflare has both things. They have the
+          transport-layer fingerprint from the ClientHello, and they have the agent
+          readiness signals from their configuration checker. The gap is that these
+          two systems do not inform each other. Agent readiness is checked at
+          configuration time, not connection time. The fingerprint is used for bot
+          classification, not agent routing.
 
-        <div class="ascii-diagram"><span class="dim">visitor (TLS)
-      │
-      ▼</span>
-<span class="ok">┌─────────────────┐</span>
-<span class="ok">│   TLS proxy     │</span>  <span class="hl">← MSG_PEEK: reads ClientHello without consuming</span>
-<span class="ok">│                 │</span>  <span class="dim">← computes JA4, classifies client</span>
-<span class="ok">│                 │</span>  <span class="dim">← completes TLS handshake (same bytes)</span>
-<span class="ok">│                 │</span>  <span class="dim">← reads decrypted HTTP, injects X-Client-* headers</span>
-<span class="ok">└────────┬────────┘</span>
-<span class="dim">         │ plain HTTP (internal network)
-         ▼
-┌─────────────────┐
-│ routing decision│
-└──┬──────────┬───┘
-   │          │
-   ▼          ▼</span>
-<span class="ok">browser</span>     <span class="hl">agent</span>
-<span class="dim"> HTML        JSON</span></div>
+          Closing move: the infrastructure to combine these signals already exists
+          inside a single product. The question the post raises is not whether this
+          can be built. The infrastructure exists. The question is why it has not
+          been connected. This observation should be the final beat of the section,
+          not a paragraph about architectural constraints the reader faces.
 
-        <p>Before the TLS handshake begins, a client sends a ClientHello — a plaintext packet that includes the cipher suites and extensions it supports. The proxy reads this packet using MSG_PEEK, a socket operation that copies bytes from the kernel buffer without consuming them. That's enough to compute the JA4 fingerprint and classify the client. The bytes then remain in the buffer, and the proxy proceeds with a normal TLS handshake — from the client's perspective, nothing unusual happened.</p>
+          EXAMPLE IMPLEMENTATION:
 
-        <p>From there it's a standard terminating proxy. The proxy holds the TLS session, reads the decrypted HTTP request, injects classification headers, and forwards plain HTTP to the appropriate backend on the internal network. The classification — <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-Type</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-JA4</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">X-Client-Confidence</code> — arrives at the backend before a single line of application code runs.</p>
+          Replace the current second and third paragraphs of this section with:
 
-        <p>The result is two separate backends: one that returns HTML for browsers, and one that returns structured JSON for everything else. Simulate what an agent receives by clicking below — the response is exactly what a Python HTTP client or curl would get when hitting this endpoint.</p>
+          Paragraph 2 (Cloudflare position, not reader constraint):
+          "Cloudflare's edge receives every ClientHello from every connection that
+          passes through their network. JA4 fingerprinting already runs there as
+          the basis of their bot management product. The agent readiness checker
+          from this post's opening also runs there, as a configuration audit for
+          origin operators. These are two separate systems that do not yet inform
+          each other. The readiness checker runs at configuration time, against
+          static properties of the origin. The fingerprint runs at connection time,
+          against the client. The former tells you whether you have prepared for
+          agents, and the latter tells you whether an agent actually arrived."
 
-        <!-- Interactive JSON terminal -->
-        <div class="json-terminal-outer">
-          <div class="json-terminal-titlebar">
-            <span class="json-terminal-title">shell — simulate agent request</span>
-            <button class="curl-btn" id="curl-btn" onclick="runCurlDemo()">→ Send curl request</button>
-          </div>
-          <div class="json-terminal-body" id="json-terminal-body">
-            <div class="resp-line" style="color:#44445a;">Click the button to simulate a curl request to this endpoint.</div>
-          </div>
-        </div>
+          Paragraph 3 (closing move):
+          "The infrastructure to act on both signals simultaneously already exists
+          inside a single product. An origin flagged as agent-ready could receive
+          a connection fingerprinted as a Python HTTP client, and the routing
+          decision could be made from both facts at once — not from configuration
+          state alone, and not from transport identity alone. The case for combining
+          them is not that either approach is wrong. The case is that neither is
+          sufficient without the other, and the gap between them is not an
+          engineering problem."
 
-        <p>The <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">agent_meta</code> block at the bottom is worth reading. It tells the client exactly what was detected, at what layer, and why it received JSON instead of HTML. <code style="font-family:'JetBrains Mono',monospace;font-size:0.82em;color:var(--accent)">detection_layer: "network"</code> isn't rhetorical — the routing decision was made from five fields in a TLS packet, before any HTTP was exchanged.</p>
-
+          This structure closes on the thesis directly: application-layer standards
+          tell you whether your site is ready; transport-layer fingerprinting tells
+          you what connected. The infrastructure to combine them exists. That
+          observation earns its place as the final beat.
+        -->
         <!-- ── Section 5: Two layers ──────────────────────────────────────── -->
         <h2 class="section-heading">Two layers, two different problems</h2>
 
