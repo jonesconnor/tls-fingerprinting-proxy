@@ -29,7 +29,7 @@ import os
 import socket
 import ssl
 
-from classifier import classify
+from classifier import Classification, classify
 from ja4 import compute_ja4, compute_ja4_raw
 from logger import FingerprintLogger
 from lookup import Ja4Database
@@ -370,7 +370,22 @@ async def handle_connection(
         ch = parse_client_hello(peek_data)
         ja4 = "parse_error" if ch.parse_error else compute_ja4(ch)
         raw = {} if ch.parse_error else compute_ja4_raw(ch)
-        clf = db.lookup(ja4) or db.lookup_nearest(ja4) or classify(ja4, ch)
+
+        # When scapy fails to parse the ClientHello, ch has all-empty defaults
+        # (0 ciphers, 0 extensions, no GREASE). Passing that into classify() triggers
+        # the "minimal_ciphers + no GREASE" heuristic, which incorrectly returns
+        # "Go net/http agent". If the bytes were actually valid TLS (just a format
+        # scapy couldn't handle), wrap_socket still succeeds and the agent page gets
+        # served to a real browser. Default to unknown → human backend instead.
+        if ch.parse_error:
+            clf = Classification(
+                client_type="unknown",
+                confidence="low",
+                detail=f"ClientHello parse failed — {ch.parse_error[:80]}",
+                signals=["parse_error"],
+            )
+        else:
+            clf = db.lookup(ja4) or db.lookup_nearest(ja4) or classify(ja4, ch)
 
         if clf.client_type == "unknown":
             log.warning(f"{client_ip}: unknown fingerprint {ja4} — not in ja4db or catalogue")
