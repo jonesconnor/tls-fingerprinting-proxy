@@ -221,3 +221,6 @@ certs/letsencrypt/
 
 # Intermediate fingerprint capture output (merged into catalogue/ before committing)
 .capture-tmp/
+
+# Local HTML drafts
+personal-page-v2.html
