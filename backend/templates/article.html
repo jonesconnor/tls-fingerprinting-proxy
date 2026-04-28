@@ -510,6 +510,21 @@
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { opacity: 0.75; }
 
+    /* ── Live demo note ─────────────────────────────────────────────────── */
+    .demo-note {
+      background: #0c0c0f;
+      border-bottom: 1px solid #252530;
+      padding: 0.4rem 2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #44445a;
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .demo-note a { color: #555570; text-decoration: none; }
+    .demo-note a:hover { color: var(--accent); }
+
     /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       nav { padding: 0 1.25rem; }
@@ -517,6 +532,7 @@
       .terminal-body { padding: 1rem 1.25rem; }
       .t-key { min-width: 150px; }
       .nav-links { display: none; }
+      .demo-note { padding: 0.4rem 1.25rem; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
     }
   </style>
   <script>
@@ -570,6 +586,12 @@
     </div>
   </div>
 
+  <!-- ── Live demo note ─────────────────────────────────────────────────── -->
+  <div class="demo-note">
+    <span>The terminal above is not a mockup. It is this request.</span>
+    <span><a href="/compare">/compare</a> &nbsp;·&nbsp; <a href="/stats">/stats</a> &nbsp;·&nbsp; <a href="/debug">/debug</a></span>
+  </div>
+
   <!-- ── Nav ────────────────────────────────────────────────────────────── -->
   <nav>
     <a href="/" class="nav-brand">connor<span>jones</span>.ca</a>
@@ -611,6 +633,8 @@
         <p><a href="https://blog.cloudflare.com/agent-readiness/" target="_blank" rel="noopener">Cloudflare published a post last week</a> introducing a tool that checks whether your site is configured to work well with AI agents. The tool is genuinely useful to an operator preparing a site for agent traffic: it audits the configuration choices on their side of the conversation, whether the site has a robots.txt, whether it serves markdown, and whether it exposes an MCP server. What it cannot audit is the client. The checklist only tells you whether you are ready to receive agents that cooperate. The authors mention that as of February 2026, only 3 of 7 agents they tested actually request markdown by default, which is the first sign that cooperation is not guaranteed.</p>
 
         <p>The question I've been working on is whether you can tell what kind of client is connecting before it identifies itself, before it has sent a single HTTP byte.</p>
+
+        <p>Cloudflare's checker looks at the origin. JA4 looks at the client. The interesting part is what happens when those signals meet at the edge.</p>
 
         <p>Every HTTPS connection opens with a negotiation that happens entirely before application code runs on either side. That negotiation carries information the client cannot suppress. If those signals are consistent enough to classify, the identification doesn't depend on the client cooperating.</p>
 
@@ -695,15 +719,6 @@
             </thead>
             <tbody>
               <tr>
-                <td>Chromium 145</td>
-                <td class="muted">BoringSSL</td>
-                <td>15</td>
-                <td>16</td>
-                <td>h2</td>
-                <td>1.3</td>
-                <td><span class="sig-badge sig-ok">✓ Unambiguous</span></td>
-              </tr>
-              <tr>
                 <td>Go net/http</td>
                 <td class="muted">crypto/tls</td>
                 <td>13</td>
@@ -781,7 +796,7 @@
 
         <p>Most entries came back unambiguous. Go's crypto/tls implementation doesn't resemble anything else in the table — the combination of cipher suites and extensions it sends is distinct enough that a match is a reliable identification. The Python row covers every AI SDK currently in common use: the Anthropic client, the OpenAI client, LangChain all route through the same OpenSSL stack, so they land on the same row. The amber entries are where confidence drops. Rust on Linux and curl on Linux are similar enough that the classifier cannot distinguish them reliably. curl on macOS links against LibreSSL rather than OpenSSL, which makes it a completely different fingerprint from its Linux counterpart, so treating curl as a single identity would misclassify half that traffic.</p>
 
-        <p>The <a href="/stats">/stats</a> page shows how the proxy has classified every connection since the site went live. The three categories — browser, agent, and tool — correspond to TLS library families. Chrome is recognizable immediately, because BoringSSL's fingerprint is distinct from every programmatic client in the catalogue. The agent/tool split is less tidy: agent covers clients whose fingerprints are consistent with a Python or Node runtime, and tool covers clients like curl. That split rests on a narrower signal than the labels imply.</p>
+        <p>The <a href="/stats">/stats</a> page shows how the proxy has classified every connection since the site went live. The three categories — browser, agent, and tool — correspond to TLS library families. In this post, <em>agent</em> means a fingerprint consistent with common Python or Node agent runtimes; <em>tool</em> means a command-line fingerprint like curl. These are runtime classes, not application identities: TLS can tell you the library, not what is running above it. Chrome is recognizable immediately, because BoringSSL's fingerprint is distinct from every programmatic client in the catalogue. The agent/tool split is less tidy: agent covers clients whose fingerprints are consistent with a Python or Node runtime, and tool covers clients like curl. That split rests on a narrower signal than the labels imply.</p>
 
         <p>The agent/tool split rests on a single number: how many TLS extensions the client sends. curl typically sends 7 or 8; Python's HTTP library typically sends 9 to 12. For every client in the catalogue, the match is exact and the extension-count range is consistent across every capture. That range is the entire basis for the classification.</p>
 
@@ -800,7 +815,7 @@
 
         <p>Cloudflare's edge receives every ClientHello from every connection that passes through their network. JA4 fingerprinting is already part of their bot management stack, running at the edge and surfacing as a signal that Enterprise customers can build detection rules against. The agent readiness checker from this post's opening also runs there, as a configuration audit for origin operators. These are two separate systems that do not yet inform each other. The readiness checker runs at configuration time against static properties of the origin; the fingerprint runs at connection time against the client. These two signals sit inside the same product, indexing the same traffic, and they have not yet been connected.</p>
 
-        <p>The infrastructure to act on both signals simultaneously already exists inside a single product. An origin flagged as agent-ready could receive a connection fingerprinted as a Python HTTP client, and the routing decision — serve structured data, expose the MCP endpoint, skip the bot interstitial — could be made from both facts at once, before a single HTTP byte has passed. The readiness checker and the fingerprint already arrive at the same edge, on every connection. The infrastructure is already there. What it hasn't been used to do is route a connection using both facts at once.</p>
+        <p>Cloudflare already has both signals. One tells you what the origin is prepared to serve. The other tells you what kind of client just arrived. Today, those signals are separate. What they haven't been used to do is route a connection using both facts at once. An origin flagged as agent-ready that sees a Python-class fingerprint can serve structured data and skip the bot challenge (the verification page Cloudflare shows when it suspects automated traffic) — a routing decision grounded in both what arrived and what the origin is configured to offer.</p>
 
       </article>
 
