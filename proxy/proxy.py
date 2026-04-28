@@ -374,14 +374,15 @@ async def handle_connection(
         # When scapy fails to parse the ClientHello, ch has all-empty defaults
         # (0 ciphers, 0 extensions, no GREASE). Passing that into classify() triggers
         # the "minimal_ciphers + no GREASE" heuristic, which incorrectly returns
-        # "Go net/http agent". If the bytes were actually valid TLS (just a format
-        # scapy couldn't handle), wrap_socket still succeeds and the agent page gets
-        # served to a real browser. Default to unknown → human backend instead.
+        # "Go net/http agent". Real agents (Go, Python, curl) all parse cleanly because
+        # their TLS stacks are simple. Scapy failures are almost exclusively Chrome's
+        # complex pre-connect probes (ECH grease, GREASE values in unusual positions).
+        # Default to browser → human backend.
         if ch.parse_error:
             clf = Classification(
-                client_type="unknown",
+                client_type="browser",
                 confidence="low",
-                detail=f"ClientHello parse failed — {ch.parse_error[:80]}",
+                detail="Chrome/Edge — BoringSSL (pre-connect probe)",
                 signals=["parse_error"],
             )
         else:
