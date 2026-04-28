@@ -695,15 +695,6 @@
             </thead>
             <tbody>
               <tr>
-                <td>Chromium 145</td>
-                <td class="muted">BoringSSL</td>
-                <td>15</td>
-                <td>16</td>
-                <td>h2</td>
-                <td>1.3</td>
-                <td><span class="sig-badge sig-ok">✓ Unambiguous</span></td>
-              </tr>
-              <tr>
                 <td>Go net/http</td>
                 <td class="muted">crypto/tls</td>
                 <td>13</td>
@@ -798,9 +789,7 @@
 
         <p>The Cloudflare readiness checker and a TLS fingerprinting proxy are solving adjacent problems, not the same one. The readiness checker audits what you, the operator, have configured — robots.txt, markdown serving, MCP exposure. The fingerprinting proxy observes what arrived at connection time, before any of that configuration came into play. A site can be perfectly prepared to serve agents and receive nothing but scrapers. A proxy can classify every connection accurately and still serve content that agents cannot use. Each question is independently answerable. Neither answer is useful without the other.</p>
 
-        <p>Cloudflare's edge receives every ClientHello from every connection that passes through their network. JA4 fingerprinting is already part of their bot management stack, running at the edge and surfacing as a signal that Enterprise customers can build detection rules against. The agent readiness checker from this post's opening also runs there, as a configuration audit for origin operators. These are two separate systems that do not yet inform each other. The readiness checker runs at configuration time against static properties of the origin; the fingerprint runs at connection time against the client. These two signals sit inside the same product, indexing the same traffic, and they have not yet been connected.</p>
-
-        <p>The infrastructure to act on both signals simultaneously already exists inside a single product. An origin flagged as agent-ready could receive a connection fingerprinted as a Python HTTP client, and the routing decision — serve structured data, expose the MCP endpoint, skip the bot interstitial — could be made from both facts at once, before a single HTTP byte has passed. The readiness checker and the fingerprint already arrive at the same edge, on every connection. The infrastructure is already there. What it hasn't been used to do is route a connection using both facts at once.</p>
+        <p>Cloudflare's edge receives every ClientHello from every connection that passes through their network. JA4 fingerprinting is already part of their bot management stack, running at the edge and surfacing as a signal that Enterprise customers can build detection rules against. The agent readiness checker from this post's opening also runs there, as a configuration audit for origin operators. These are two separate systems that do not yet inform each other. The readiness checker runs at configuration time against static properties of the origin; the fingerprint runs at connection time against the client. These two signals sit inside the same product, indexing the same traffic, and they have not yet been connected. The infrastructure is already there. What it hasn't been used to do is route a connection using both facts at once. An origin flagged as agent-ready that sees a Python-class fingerprint can serve structured data and skip the bot challenge (the verification page Cloudflare shows when it suspects automated traffic) — a routing decision grounded in both what arrived and what the origin is configured to offer.</p>
 
       </article>
 
