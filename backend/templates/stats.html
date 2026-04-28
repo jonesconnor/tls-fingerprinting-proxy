@@ -311,57 +311,6 @@
       color: var(--accent);
     }
 
-    /* ── Gap candidate cards ──────────────────────────────────────────── */
-    .gap-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .gap-card {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 0.5rem 1.5rem;
-      align-items: center;
-      padding: 0.85rem 1rem;
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-    }
-
-    .gap-card-left { min-width: 0; }
-
-    .gap-ja4 {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--accent);
-      word-break: break-all;
-      margin-bottom: 0.2rem;
-    }
-
-    .gap-detail {
-      font-family: 'Instrument Sans', sans-serif;
-      font-size: 0.82rem;
-      color: var(--muted);
-    }
-
-    .gap-card-right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.25rem;
-      white-space: nowrap;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.68rem;
-      color: var(--muted);
-    }
-
-    .gap-count {
-      font-size: 1.1rem;
-      font-weight: 500;
-      color: var(--text);
-    }
-
     /* ── Chart ────────────────────────────────────────────────────────── */
     .chart-container {
       position: relative;
@@ -402,8 +351,6 @@
       nav { padding: 0 1.25rem; }
       .container { padding: 0 1.25rem; }
       .section-card { padding: 1.25rem; }
-      .gap-card { grid-template-columns: 1fr; }
-      .gap-card-right { align-items: flex-start; flex-direction: row; gap: 0.75rem; }
     }
   </style>
 </head>
@@ -461,36 +408,7 @@
     </div>
     {% else %}
 
-    <!-- ── Section 1: Catalogue Gap Candidates ───────────────────────── -->
-    <div class="section-card">
-      <div class="section-label">Catalogue Gap Candidates — heuristic matches seen 3+ times</div>
-      {% if gap_candidates %}
-      <div class="gap-list">
-        {% for g in gap_candidates %}
-        <div class="gap-card">
-          <div class="gap-card-left">
-            <div class="gap-ja4">{{ g.ja4 }}</div>
-            <div class="gap-detail">{{ g.detail or 'no detail' }}</div>
-          </div>
-          <div class="gap-card-right">
-            <span class="gap-count">{{ g.cnt }}</span>
-            <span>requests</span>
-            <span style="margin-top: 0.15rem;">last {{ g.last_seen[:16] | replace('T', ' ') }}</span>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      <p style="margin-top: 1rem; font-family: 'Instrument Sans', sans-serif; font-size: 0.8rem; color: var(--muted);">
-        These JA4 fingerprints were classified by heuristics rather than an exact or near catalogue match. High repeat counts are strong candidates for capture harness runs to add to the catalogue.
-      </p>
-      {% else %}
-      <div class="empty-state">
-        <p>No heuristic-matched fingerprints seen 3 or more times yet.</p>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- ── Section 2: Hourly Traffic (last 24h) ──────────────────────── -->
+    <!-- ── Section 1: Hourly Traffic (last 24h) ──────────────────────── -->
     <div class="section-card">
       <div class="section-label">Traffic by client type — last 24 hours</div>
       <div class="chart-container">
