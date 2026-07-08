@@ -529,6 +529,58 @@
 </head>
 <body>
 
+  {% set is_parse_error = classification.ja4 == 'parse_error' or 'parse_error' in classification.signals %}
+  {% if is_parse_error %}
+  <!-- Auto-refresh once; if still parse_error, the notice inside the terminal explains why. -->
+  <script>
+    (function() {
+      try {
+        if (!sessionStorage.getItem('pe-retried')) {
+          sessionStorage.setItem('pe-retried', '1');
+          location.reload();
+        }
+      } catch (e) {}
+    })();
+  </script>
+  {% else %}
+  <script>try { sessionStorage.removeItem('pe-retried'); } catch (e) {}</script>
+  {% endif %}
+
+  <style>
+    .t-parse-error {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.85rem;
+      background: rgba(232, 160, 32, 0.10);
+      border: 1px solid rgba(232, 160, 32, 0.35);
+      border-left: 3px solid #e8a020;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: #e8e8ec;
+    }
+    .t-parse-error .pe-text { flex: 1; min-width: 0; }
+    .t-parse-error strong { color: #e8a020; font-weight: 600; margin-right: 0.15rem; }
+    .t-parse-error button {
+      flex-shrink: 0;
+      padding: 0.28rem 0.7rem;
+      background: transparent;
+      color: #e8a020;
+      border: 1px solid #e8a020;
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .t-parse-error button:hover { background: #e8a020; color: #0c0c0f; }
+  </style>
+
   <!-- ── Classification terminal banner ─────────────────────────────────── -->
   <div class="terminal-window">
     <div class="terminal-titlebar">
@@ -567,6 +619,15 @@
       <div class="t-comment">
         # This classification happened before your browser sent a single HTTP byte.<span class="cursor">█</span>
       </div>
+      {% if is_parse_error %}
+      <div class="t-parse-error" role="status">
+        <span class="pe-text">
+          <strong>Pre-connect probe:</strong>
+          your browser opened a speculative TLS socket we couldn't parse — this is normal Chrome/Edge behaviour, not a problem with your setup. Refresh to see your real fingerprint.
+        </span>
+        <button type="button" onclick="try { sessionStorage.removeItem('pe-retried'); } catch (e) {} location.reload();">Refresh</button>
+      </div>
+      {% endif %}
     </div>
   </div>
 
@@ -745,7 +806,7 @@
                 <td>31</td>
                 <td>12</td>
                 <td>h2</td>
-                <td>1.3</td>
+                <td>1.3</td>/
                 <td><span class="sig-badge sig-warn">~ Overlaps Rust/Linux</span></td>
               </tr>
               <tr>

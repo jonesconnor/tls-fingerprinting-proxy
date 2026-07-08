@@ -374,6 +374,58 @@
 </head>
 <body>
 
+  {% set is_parse_error = classification.ja4 == 'parse_error' or 'parse_error' in classification.signals %}
+  {% if is_parse_error %}
+  <script>
+    (function() {
+      try {
+        if (!sessionStorage.getItem('pe-retried')) {
+          sessionStorage.setItem('pe-retried', '1');
+          location.reload();
+        }
+      } catch (e) {}
+    })();
+  </script>
+  {% else %}
+  <script>try { sessionStorage.removeItem('pe-retried'); } catch (e) {}</script>
+  {% endif %}
+
+  <style>
+    .pe-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.35rem 0.75rem 0.35rem 0.85rem;
+      background: var(--amber-dim);
+      border: 1px solid rgba(232, 160, 32, 0.35);
+      border-left: 3px solid var(--amber);
+      border-radius: 3px;
+      color: var(--text);
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      max-width: 640px;
+    }
+    .pe-inline strong { color: var(--amber); font-weight: 600; margin-right: 0.15rem; }
+    .pe-inline .pe-text { flex: 1; min-width: 0; }
+    .pe-inline button {
+      flex-shrink: 0;
+      padding: 0.28rem 0.7rem;
+      background: transparent;
+      color: var(--amber);
+      border: 1px solid var(--amber);
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .pe-inline button:hover { background: var(--amber); color: var(--bg); }
+  </style>
+
   <!-- Classification banner — the first thing the visitor sees is what the proxy detected -->
   <div class="classification-bar">
     <span class="detected-label">Detected as</span>
@@ -393,6 +445,15 @@
       <span class="chip">{{ sig }}</span>
       {% endfor %}
     </div>
+    {% endif %}
+    {% if is_parse_error %}
+    <span class="pe-inline" role="status">
+      <span class="pe-text">
+        <strong>Pre-connect probe:</strong>
+        your browser opened a speculative TLS socket we couldn't parse — normal Chrome/Edge behaviour. Refresh to see your real fingerprint.
+      </span>
+      <button type="button" onclick="try { sessionStorage.removeItem('pe-retried'); } catch (e) {} location.reload();">Refresh</button>
+    </span>
     {% endif %}
   </div>
 
