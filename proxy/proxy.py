@@ -427,7 +427,14 @@ async def handle_connection(
             return
 
         # ── 4. Read decrypted HTTP request ──────────────────────────────────
-        request_bytes = await _read_http_request(ssl_sock, loop)
+        # Speculative pre-connect sockets (Chrome/Edge preconnect warmers) complete
+        # the TLS handshake and then send no HTTP data. Our recv() will hit the 10s
+        # socket timeout — that's expected, not an error worth a traceback.
+        try:
+            request_bytes = await _read_http_request(ssl_sock, loop)
+        except TimeoutError:
+            log.debug(f"{client_ip}: idle TLS connection (likely pre-connect probe)")
+            return
         if not request_bytes:
             return
 
@@ -440,17 +447,26 @@ async def handle_connection(
         response = await _forward_to_backend(modified, loop, backend_host, backend_port)
 
         # ── 7. Log to traffic DB (after forward so path is known) ────────────
-        traffic_log.record(
-            ja4=ja4,
-            path=path,
-            client_type=clf.client_type,
-            detail=clf.detail,
-            confidence=clf.confidence,
-            match_type=clf.match_type,
-        )
+        # Skip parse_error rows — they're pre-connect probes, not real page views.
+        # Matches the fp_log behavior above.
+        if not ch.parse_error:
+            traffic_log.record(
+                ja4=ja4,
+                path=path,
+                client_type=clf.client_type,
+                detail=clf.detail,
+                confidence=clf.confidence,
+                match_type=clf.match_type,
+            )
 
         # ── 8. Return response to client ─────────────────────────────────────
-        await loop.run_in_executor(None, lambda: ssl_sock.sendall(response))
+        # Client abandoned the socket before we finished responding — nothing
+        # actionable, log a single line instead of a traceback.
+        try:
+            await loop.run_in_executor(None, lambda: ssl_sock.sendall(response))
+        except (BrokenPipeError, ConnectionResetError):
+            log.debug(f"{client_ip}: client closed before response finished")
+            return
 
     except Exception as exc:
         log.error(f"{client_ip}: unhandled error: {exc}", exc_info=True)
